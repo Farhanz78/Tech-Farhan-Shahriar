@@ -5,6 +5,7 @@ import { Tool } from '@/types';
 
 export default function ToolCard({ tool }: { tool: Tool }) {
     // Fallback to 'Code' icon if name not found
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const IconComponent = (icons as any)[tool.icon_name] || icons.Code;
 
     return (

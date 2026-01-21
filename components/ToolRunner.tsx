@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import * as icons from 'lucide-react';
-import Link from 'next/link';
+
 
 interface ToolRunnerProps {
     htmlCode: string;
@@ -38,6 +38,7 @@ export default function ToolRunner({ htmlCode, title, iconName }: ToolRunnerProp
         const blob = new Blob([secureHtml], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setBlobUrl(url);
 
         // Cleanup
@@ -46,7 +47,7 @@ export default function ToolRunner({ htmlCode, title, iconName }: ToolRunnerProp
         };
     }, [htmlCode]);
 
-    const Icon = (icons as any)[iconName] || icons.Code;
+
 
     if (!blobUrl) {
         return (

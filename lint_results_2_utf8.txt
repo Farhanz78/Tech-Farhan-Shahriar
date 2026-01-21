@@ -1,0 +1,23 @@
+﻿
+> my-app@0.1.0 lint
+> eslint
+
+
+C:\Users\nisa8\OneDrive\Desktop\Spell Github Upload\Spell-Website-Portfolio\Tech-Farhan-Portfo\app\admin\page.tsx
+  205:50   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  309:71   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  309:140  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  330:50   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\nisa8\OneDrive\Desktop\Spell Github Upload\Spell-Website-Portfolio\Tech-Farhan-Portfo\app\page.tsx
+  41:15  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\nisa8\OneDrive\Desktop\Spell Github Upload\Spell-Website-Portfolio\Tech-Farhan-Portfo\components\ToolCard.tsx
+  8:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\nisa8\OneDrive\Desktop\Spell Github Upload\Spell-Website-Portfolio\Tech-Farhan-Portfo\components\ToolRunner.tsx
+  50:11  warning  'Icon' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  50:43  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+Γ£û 8 problems (5 errors, 3 warnings)
+

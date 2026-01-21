@@ -49,7 +49,7 @@ export default async function Home() {
 
         <div className="md:w-2/3 text-center md:text-left space-y-6">
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
-            Hi, I'm <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">{displayName}</span>
+            Hi, I&apos;m <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">{displayName}</span>
           </h1>
           <p className="text-xl text-neutral-400 leading-relaxed max-w-2xl mx-auto md:mx-0">
             A passionate developer building <span className="text-white font-medium">dynamic web experiences</span>.

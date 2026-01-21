@@ -6,6 +6,7 @@ import { supabase } from '@/utils/supabase/client';
 import Link from 'next/link';
 import * as icons from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Tool } from '@/types';
 
 export default function AdminPage() {
     const [loading, setLoading] = useState(true);
@@ -26,7 +27,7 @@ export default function AdminPage() {
     const [htmlCode, setHtmlCode] = useState('');
 
     // Manage Tools State
-    const [tools, setTools] = useState<any[]>([]);
+    const [tools, setTools] = useState<Tool[]>([]);
     const [refreshTools, setRefreshTools] = useState(0);
 
     // Profile State
@@ -154,8 +155,8 @@ export default function AdminPage() {
             if (error) throw error;
             alert('Tool added successfully!');
             setTitle(''); setIconName('Code'); setHtmlCode('');
-        } catch (err: any) {
-            alert('Error adding tool: ' + err.message);
+        } catch (err) {
+            alert('Error adding tool: ' + (err as Error).message);
         } finally {
             setSubmitting(false);
         }
@@ -193,14 +194,15 @@ export default function AdminPage() {
             if (uploadError) throw uploadError;
             const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
             setAvatarUrl(data.publicUrl);
-        } catch (error: any) {
-            alert(error.message);
+        } catch (error) {
+            alert((error as Error).message);
         } finally {
             setUploading(false);
         }
     };
 
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const IconPreview = (icons as any)[iconName] || icons.HelpCircle;
 
     if (loading) return (
@@ -305,6 +307,7 @@ export default function AdminPage() {
                                 <div key={tool.id} className="bg-neutral-900/50 border border-neutral-800 p-4 rounded-xl flex items-center justify-between group hover:border-violet-500/30 transition-colors">
                                     <div className="flex items-center gap-4">
                                         <div className="p-2 bg-neutral-800 rounded-lg text-violet-400">
+                                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                             {(icons as any)[tool.icon_name] ? React.createElement((icons as any)[tool.icon_name], { size: 20 }) : <icons.Code size={20} />}
                                         </div>
                                         <span className="font-semibold text-lg">{tool.title}</span>
