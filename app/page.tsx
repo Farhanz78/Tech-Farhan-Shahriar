@@ -13,12 +13,13 @@ export default async function Home() {
     .order('created_at', { ascending: false });
 
   // FETCH PROFILE
-  // Fetch the first available profile (owner).
-  const { data: profile } = await supabase
+  // Fetch profiles and find the one that has been set up (has a name).
+  const { data: profiles } = await supabase
     .from('profiles')
-    .select('*')
-    .limit(1)
-    .single();
+    .select('*');
+
+  // Prioritize the profile that has a name set, otherwise fallback to the first one.
+  const profile = profiles?.find((p) => p.full_name) || profiles?.[0];
 
   const displayName = profile?.full_name || "Your Name";
   const avatar = profile?.avatar_url || "/me.jpg";
