@@ -35,7 +35,7 @@ export default async function Home() {
         <div className="absolute bottom-20 right-20 w-72 h-72 bg-fuchsia-600/30 rounded-full blur-[100px] -z-10 animate-pulse delay-700" />
 
         <div className="md:w-1/3 flex justify-center">
-          <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-full p-1 bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-2xl shadow-violet-500/20">
+          <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-full p-1 bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-2xl shadow-violet-500/20 animate-float">
             <div className="w-full h-full rounded-full overflow-hidden bg-black border-4 border-black relative">
               <img
                 src={avatar}
@@ -75,8 +75,8 @@ export default async function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tools?.map((tool) => (
-            <ToolCard key={tool.id} tool={tool as Tool} />
+          {tools?.map((tool, index) => (
+            <ToolCard key={tool.id} tool={tool as Tool} index={index} />
           ))}
 
           {(!tools || tools.length === 0) && (

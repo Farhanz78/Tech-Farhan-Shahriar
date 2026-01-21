@@ -3,13 +3,18 @@ import Link from 'next/link';
 import * as icons from 'lucide-react';
 import { Tool } from '@/types';
 
-export default function ToolCard({ tool }: { tool: Tool }) {
+export default function ToolCard({ tool, index = 0 }: { tool: Tool; index?: number }) {
     // Fallback to 'Code' icon if name not found
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const IconComponent = (icons as any)[tool.icon_name] || icons.Code;
 
     return (
-        <Link href={`/play/${tool.id}`} target="_blank" className="block group h-full">
+        <Link
+            href={`/play/${tool.id}`}
+            target="_blank"
+            className="block group h-full animate-float"
+            style={{ animationDelay: `-${index * 1.5}s` }}
+        >
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 hover:border-violet-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 h-full flex flex-col justify-between gap-4">
                 <div className="flex items-start justify-between w-full">
                     <div className="p-3 bg-neutral-800 rounded-xl group-hover:bg-violet-500/20 group-hover:text-violet-400 transition-colors">
