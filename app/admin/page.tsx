@@ -21,10 +21,11 @@ export default function AdminPage() {
     // Dashboard State
     const [activeTab, setActiveTab] = useState<'deploy' | 'manage' | 'profile'>('deploy');
 
-    // Deploy Tool State
+    // Deploy/Edit Tool State
     const [title, setTitle] = useState('');
     const [iconName, setIconName] = useState('Code');
     const [htmlCode, setHtmlCode] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     // Manage Tools State
     const [tools, setTools] = useState<Tool[]>([]);
@@ -151,15 +152,48 @@ export default function AdminPage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.from('tools').insert({ title, icon_name: iconName, html_code: htmlCode });
-            if (error) throw error;
-            alert('Tool added successfully!');
+            if (editingId) {
+                // Update existing tool
+                const { error } = await supabase.from('tools').update({
+                    title, icon_name: iconName, html_code: htmlCode
+                }).eq('id', editingId);
+                if (error) throw error;
+                alert('Tool updated successfully!');
+                setEditingId(null);
+            } else {
+                // Create new tool
+                const { error } = await supabase.from('tools').insert({
+                    title, icon_name: iconName, html_code: htmlCode
+                });
+                if (error) throw error;
+                alert('Tool added successfully!');
+            }
+            // Reset form
             setTitle(''); setIconName('Code'); setHtmlCode('');
+            // If we were editing, stick to deploy tab, or maybe switch to manage? 
+            // Let's stay on deploy form which acts as edit form now.
         } catch (err) {
-            alert('Error adding tool: ' + (err as Error).message);
+            alert('Error saving tool: ' + (err as Error).message);
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleEditTool = (tool: Tool) => {
+        setTitle(tool.title);
+        setIconName(tool.icon_name);
+        setHtmlCode(tool.html_code);
+        setEditingId(tool.id);
+        setActiveTab('deploy');
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setTitle('');
+        setIconName('Code');
+        setHtmlCode('');
     };
 
     const handleDeleteTool = async (id: string) => {
@@ -266,8 +300,12 @@ export default function AdminPage() {
                 {activeTab === 'deploy' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="mb-10 space-y-2">
-                            <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Deploy New Tool</h1>
-                            <p className="text-neutral-400 text-lg">Add a new HTML micro-app to your portfolio.</p>
+                            <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+                                {editingId ? 'Edit Tool' : 'Deploy New Tool'}
+                            </h1>
+                            <p className="text-neutral-400 text-lg">
+                                {editingId ? 'Update your existing micro-app.' : 'Add a new HTML micro-app to your portfolio.'}
+                            </p>
                         </div>
                         <form onSubmit={handleDeploy} className="space-y-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -290,9 +328,14 @@ export default function AdminPage() {
                                 <label className="text-sm font-medium text-neutral-300 flex items-center gap-2"><icons.Code className="w-4 h-4 text-emerald-500" /> HTML Source Code</label>
                                 <textarea value={htmlCode} onChange={(e) => setHtmlCode(e.target.value)} required rows={15} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-4 font-mono text-sm text-neutral-300 focus:ring-2 focus:ring-violet-500 outline-none resize-y" placeholder="<!DOCTYPE html>..." />
                             </div>
-                            <div className="pt-4 flex justify-end">
+                            <div className="pt-4 flex justify-between items-center">
+                                {editingId && (
+                                    <button type="button" onClick={handleCancelEdit} className="text-neutral-400 hover:text-white underline">
+                                        Cancel Edit
+                                    </button>
+                                )}
                                 <button type="submit" disabled={submitting} className="px-8 py-4 bg-white text-black font-bold rounded-xl hover:bg-neutral-200 transition-all shadow-xl shadow-white/5 disabled:opacity-50 flex items-center gap-2">
-                                    {submitting ? 'Deploying...' : <><icons.Rocket className="w-5 h-5" /> Deploy Tool</>}
+                                    {submitting ? 'Saving...' : <><icons.Rocket className="w-5 h-5" /> {editingId ? 'Update Tool' : 'Deploy Tool'}</>}
                                 </button>
                             </div>
                         </form>
@@ -314,6 +357,7 @@ export default function AdminPage() {
                                     </div>
                                     <div className="flex gap-2">
                                         <Link href={`/play/${tool.id}`} target="_blank" className="p-2 hover:bg-white/10 rounded-lg text-neutral-400 hover:text-white"><icons.ExternalLink className="w-5 h-5" /></Link>
+                                        <button onClick={() => handleEditTool(tool)} className="p-2 hover:bg-violet-500/20 rounded-lg text-violet-500 hover:text-violet-400"><icons.Edit className="w-5 h-5" /></button>
                                         <button onClick={() => handleDeleteTool(tool.id)} className="p-2 hover:bg-red-500/20 rounded-lg text-red-500 hover:text-red-400"><icons.Trash2 className="w-5 h-5" /></button>
                                     </div>
                                 </div>

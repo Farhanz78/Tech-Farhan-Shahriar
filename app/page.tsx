@@ -13,11 +13,10 @@ export default async function Home() {
     .order('created_at', { ascending: false });
 
   // FETCH PROFILE
-  // Fetch the admin profile specifically.
+  // Fetch the first available profile (owner).
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('role', 'admin')
     .limit(1)
     .single();
 
