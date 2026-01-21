@@ -13,11 +13,11 @@ export default async function Home() {
     .order('created_at', { ascending: false });
 
   // FETCH PROFILE
-  // For a personal portfolio, we simply fetch the owner's profile.
-  // We assume there's only one main user (you).
+  // Fetch the admin profile specifically.
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
+    .eq('role', 'admin')
     .limit(1)
     .single();
 
