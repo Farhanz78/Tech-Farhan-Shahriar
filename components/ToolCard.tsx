@@ -1,5 +1,4 @@
 
-import Link from 'next/link';
 import * as icons from 'lucide-react';
 import { Tool } from '@/types';
 
@@ -9,7 +8,7 @@ export default function ToolCard({ tool, index = 0 }: { tool: Tool; index?: numb
     const IconComponent = (icons as any)[tool.icon_name] || icons.Code;
 
     return (
-        <Link
+        <a
             href={`/play/${tool.id}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -31,6 +30,6 @@ export default function ToolCard({ tool, index = 0 }: { tool: Tool; index?: numb
                     <p className="text-sm text-neutral-400">Run this tool</p>
                 </div>
             </div>
-        </Link>
+        </a>
     );
 }
