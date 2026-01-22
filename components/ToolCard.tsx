@@ -12,6 +12,7 @@ export default function ToolCard({ tool, index = 0 }: { tool: Tool; index?: numb
         <Link
             href={`/play/${tool.id}`}
             target="_blank"
+            rel="noopener noreferrer"
             className="block group h-full animate-float"
             style={{ animationDelay: `-${index * 1.5}s` }}
         >
