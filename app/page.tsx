@@ -159,7 +159,7 @@ export default async function Home() {
           <div className="lg:pt-[4.5rem]">
             <div className="rounded-2xl border border-hairline bg-surface p-6">
               <p className="mb-4 text-xs uppercase tracking-[0.12em] text-subtle">
-                Tools I work with
+                Areas of Expertise
               </p>
               <div className="flex flex-wrap gap-2">
                 {p.skills.map((s) => (
