@@ -150,18 +150,40 @@ export default function AdminPage() {
     e.preventDefault();
     setSigningIn(true);
     setAuthError('');
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-      setSigningIn(false);
-      return;
+    
+    let alive = true;
+    const bail = setTimeout(() => {
+      if (alive) {
+        setSigningIn(false);
+        setAuthError('Sign in timed out. Please check your connection.');
+      }
+    }, 6000);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!alive) return;
+      
+      if (error) {
+        setAuthError(error.message);
+        setSigningIn(false);
+        return;
+      }
+      if (data.session?.user) {
+        const ok = await verifyAdmin(data.session.user.id);
+        if (!alive) return;
+        setIsAdmin(ok);
+        if (!ok) setAuthError('That account is not an administrator.');
+      }
+    } catch (err) {
+      console.error('[admin] login error:', err);
+      if (alive) setAuthError('An unexpected error occurred.');
+    } finally {
+      if (alive) {
+        alive = false;
+        clearTimeout(bail);
+        setSigningIn(false);
+      }
     }
-    if (data.session?.user) {
-      const ok = await verifyAdmin(data.session.user.id);
-      setIsAdmin(ok);
-      if (!ok) setAuthError('That account is not an administrator.');
-    }
-    setSigningIn(false);
   }
 
   if (loading) {
