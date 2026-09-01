@@ -150,19 +150,18 @@ export default function AdminPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setSigningIn(true);
-    setAuthError('Connecting to server...');
+    setAuthError('Signing in…');
     
     let alive = true;
     const bail = setTimeout(() => {
       if (alive) {
         setSigningIn(false);
-        setAuthError('Request timed out after 15 seconds. Please try again.');
+        setAuthError('Sign in is taking longer than usual. Please check your network or refresh the page.');
         alive = false;
       }
-    }, 15000);
+    }, 25000);
 
     try {
-      setAuthError('Authenticating...');
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (!alive) return;
       
@@ -173,7 +172,6 @@ export default function AdminPage() {
       }
       
       if (data.session?.user) {
-        setAuthError('Verifying admin permissions...');
         const ok = await verifyAdmin(data.session.user.id);
         if (!alive) return;
         setIsAdmin(ok);
@@ -183,9 +181,9 @@ export default function AdminPage() {
           setAuthError('');
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[admin] login error:', err);
-      if (alive) setAuthError('An unexpected error occurred.');
+      if (alive) setAuthError(err?.message || 'An unexpected error occurred during sign in.');
     } finally {
       if (alive) {
         alive = false;
