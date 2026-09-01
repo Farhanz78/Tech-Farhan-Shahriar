@@ -842,16 +842,24 @@ function ManageTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    let alive = true;
+    const bail = setTimeout(() => {
+      if (alive) setLoading(false);
+    }, 4000);
     try {
       const { data } = await supabase
         .from('tools')
         .select('*')
         .order('created_at', { ascending: false });
-      setTools((data ?? []) as Tool[]);
+      if (alive) setTools((data ?? []) as Tool[]);
     } catch (e) {
       console.error('[admin] load tools failed:', e);
     } finally {
-      setLoading(false);
+      if (alive) {
+        alive = false;
+        clearTimeout(bail);
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -1248,21 +1256,35 @@ function MessagesTab() {
   const [note, setNote] = useState('');
 
   useEffect(() => {
+    let alive = true;
+    const bail = setTimeout(() => {
+      if (alive) setLoading(false);
+    }, 4000);
+    
     (async () => {
       try {
         const { data, error } = await supabase
           .from('messages')
           .select('*')
           .order('created_at', { ascending: false });
+        if (!alive) return;
         if (error) setNote('Run supabase_migration.sql to enable the contact inbox.');
         setRows((data ?? []) as Message[]);
       } catch (e) {
         console.error('[admin] load messages failed:', e);
-        setNote('Failed to load messages due to network error.');
+        if (alive) setNote('Failed to load messages due to network error.');
       } finally {
-        setLoading(false);
+        if (alive) {
+          alive = false;
+          clearTimeout(bail);
+          setLoading(false);
+        }
       }
     })();
+    return () => {
+      alive = false;
+      clearTimeout(bail);
+    };
   }, []);
 
   if (loading) return <icons.Loader2 className="w-5 h-5 text-lime animate-spin" />;
@@ -1318,12 +1340,19 @@ function ProfileTab() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
+    let alive = true;
+    const bail = setTimeout(() => {
+      if (alive) setLoading(false);
+    }, 4000);
+
     (async () => {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (!alive) return;
         if (!user || userError) return;
         
         const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (!alive) return;
         if (data) {
           setForm({
             full_name: data.full_name ?? '',
@@ -1341,9 +1370,17 @@ function ProfileTab() {
       } catch (e) {
         console.error('[admin] load profile failed:', e);
       } finally {
-        setLoading(false);
+        if (alive) {
+          alive = false;
+          clearTimeout(bail);
+          setLoading(false);
+        }
       }
     })();
+    return () => {
+      alive = false;
+      clearTimeout(bail);
+    };
   }, []);
 
   async function save(e: React.FormEvent) {
