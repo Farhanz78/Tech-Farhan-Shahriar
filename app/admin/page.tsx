@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as icons from 'lucide-react';
-import { supabase } from '@/utils/supabase/client';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/utils/supabase/client';
 import ImageCropper from '@/components/ImageCropper';
 import { readZip, describeZipError } from '@/lib/game-upload/read-zip';
 import {
@@ -150,46 +150,58 @@ export default function AdminPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setSigningIn(true);
-    setAuthError('Signing in…');
-    
-    let alive = true;
-    const bail = setTimeout(() => {
-      if (alive) {
-        setSigningIn(false);
-        setAuthError('Sign in is taking longer than usual. Please check your network or refresh the page.');
-        alive = false;
-      }
-    }, 25000);
+    setAuthError('');
+
+    const controller = new AbortController();
+    const bail = setTimeout(() => controller.abort(), 20000);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!alive) return;
-      
-      if (error) {
-        setAuthError(error.message);
+      // Direct REST call to Supabase Auth — bypasses supabase-js and its
+      // navigator.locks entirely, which is the root cause of the hang.
+      const res = await fetch(
+        `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ email, password }),
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(bail);
+
+      const body = await res.json();
+
+      if (!res.ok || body.error) {
+        setAuthError(body.error_description || body.msg || body.error || 'Invalid credentials.');
         setSigningIn(false);
         return;
       }
-      
-      if (data.session?.user) {
-        const ok = await verifyAdmin(data.session.user.id);
-        if (!alive) return;
-        setIsAdmin(ok);
-        if (!ok) {
-          setAuthError('That account is not an administrator.');
-        } else {
-          setAuthError('');
-        }
-      }
+
+      // We have a valid session — push it into the supabase-js client so the
+      // rest of the admin panel (storage uploads, RPC, etc.) works normally.
+      await supabase.auth.setSession({
+        access_token: body.access_token,
+        refresh_token: body.refresh_token,
+      });
+
+      // Verify admin
+      const ok = await verifyAdmin(body.user.id);
+      setIsAdmin(ok);
+      if (!ok) setAuthError('That account is not an administrator.');
     } catch (err: any) {
-      console.error('[admin] login error:', err);
-      if (alive) setAuthError(err?.message || 'An unexpected error occurred during sign in.');
-    } finally {
-      if (alive) {
-        alive = false;
-        clearTimeout(bail);
-        setSigningIn(false);
+      clearTimeout(bail);
+      if (err.name === 'AbortError') {
+        setAuthError('Sign in timed out. Please refresh the page and try again.');
+      } else {
+        console.error('[admin] login error:', err);
+        setAuthError(err?.message || 'An unexpected error occurred.');
       }
+    } finally {
+      setSigningIn(false);
     }
   }
 
@@ -225,7 +237,7 @@ export default function AdminPage() {
               className="w-full bg-ink border border-hairline rounded-xl px-4 py-3 outline-none focus:border-lime/60"
             />
             {authError && (
-              <p className={`text-sm ${authError.includes('...') ? 'text-subtle' : 'text-danger'}`}>
+              <p className="text-sm text-danger">
                 {authError}
               </p>
             )}
