@@ -1,26 +1,141 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+/* ==========================================================================
+   Design tokens.
+
+   Tailwind v4 has no config file: @theme IS the config. Every --color-* here
+   generates the matching bg-*, text-*, border-* and ring-* utilities.
+
+   Contrast is measured against --color-ink (#0B0C0E), the page background:
+     text     #F2F4F7  ~17.0:1   body copy, headings
+     muted    #A8AEB8   ~8.8:1   secondary copy, labels
+     subtle   #868D97   ~5.8:1   captions, metadata  (still AA for body)
+     lime     #C4F82A  ~16.2:1   primary accent, links, focus rings
+     amber    #FFB020  ~10.4:1   secondary accent, counts
+   #6E747E was rejected as a body colour: it measures 4.07:1, under AA.
+   ========================================================================== */
+@theme {
+  /* Surfaces */
+  --color-ink: #0b0c0e;
+  --color-surface: #141619;
+  --color-surface-2: #1c1f24;
+  --color-hairline: #24282e;
+  --color-hairline-strong: #333941;
+
+  /* Text */
+  --color-text: #f2f4f7;
+  --color-muted: #a8aeb8;
+  --color-subtle: #868d97;
+
+  /* Accents */
+  --color-lime: #c4f82a;
+  --color-lime-dim: #9ecb1f;
+  --color-amber: #ffb020;
+  --color-danger: #ff5a5a;
+  --color-success: #3dd68c;
+
+  /* Type */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-display), var(--font-geist-sans), sans-serif;
+
+  /* Motion.
+     `forwards`, never `both`. With `both` the element also takes the keyframe's
+     FROM state before the animation starts -- so if the animation never runs
+     (backgrounded tab, a compositor that skips it, an unsupported engine) the
+     content is stuck at opacity 0 and is invisible for good. `forwards` leaves
+     the element in its normal visible state until the animation actually plays,
+     which makes "no animation" the failure mode instead of "no content". */
+  --animate-rise: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  --animate-fade: fade 0.4s ease-out forwards;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-indeterminate: indeterminate 1.4s ease-in-out infinite;
 }
 
-@theme {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes indeterminate {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(310%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Anchored sections must clear the sticky header. */
+  scroll-padding-top: 5rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), sans-serif;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+/* A single visible focus treatment for keyboard users across the whole site. */
+:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
+::selection {
+  background: color-mix(in oklab, var(--color-lime) 30%, transparent);
+  color: var(--color-text);
+}
+
+/* Utility for cards whose cover image has not loaded yet. */
+.skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface) 25%,
+    var(--color-surface-2) 50%,
+    var(--color-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

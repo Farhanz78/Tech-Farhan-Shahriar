@@ -1,0 +1,225 @@
+====================================================
+PROJECT DETAILS: DEVELOPER PORTFOLIO & GAME/APP HOST
+Last verified: 2026-09-01
+====================================================
+
+Read SETUP.md first if supabase_migration.sql has not been run yet.
+
+NOTE ON THIS FILE: the account/hosting facts below were supplied by the owner and
+are kept. The technical sections were rewritten on 2026-09-01 because the earlier
+version described the pre-rebuild code (Next 15, ToolRunner, blob: URLs,
+"anti-theft" as security, utils/supabase.ts, types/tool.ts). None of that matches
+the current codebase. Where this file and the code disagree, the code wins.
+
+
+1. PROJECT OVERVIEW
+----------------------------------------------------
+- Project Name: Developer Portfolio & Game/App Host
+- Owner: Farhan Shahriar (works alone, no studio)
+- Type: Next.js Web Application
+- Local Path: C:\Users\nisa8\OneDrive\Desktop\spell website
+- Live URL: https://farhanshahriar.online
+- Core Functionality: a full-stack developer portfolio that also hosts and runs
+  the owner's own browser games and web tools. A project can be a multi-file
+  bundle (uploaded as .zip or as a whole folder), a single pasted HTML file, or
+  just a link out to work hosted elsewhere (Play Store, a client site).
+
+
+2. TECH STACK  (verified from package.json — do not trust older notes)
+----------------------------------------------------
+- next 16.1.4 (App Router, Turbopack)     <- NOT 15
+- react / react-dom 19.2.3
+- Tailwind CSS v4 — NO tailwind.config file. Design tokens live in the @theme
+  block in app/globals.css. That IS the config.
+- @supabase/supabase-js ^2.91.0
+- lucide-react ^0.562.0
+- fflate ^0.8.3 (client-side zip reading)
+- TypeScript 5
+- Hosting: Vercel
+
+
+3. GITHUB
+----------------------------------------------------
+- Account: Farhanz78 — https://github.com/Farhanz78
+- Git global email: pubgprimeplus.147@gmail.com
+- Repositories seen on the account:
+    Farhanz78/Tech-Farhan-Shahriar
+    Farhanz78/Tech-Farhan-Portfo
+    Farhanz78/Tech-Farhan-Shah
+  (An earlier note also referenced Farhanz78/Spell-Website-Portfolio. Confirm
+  which repo Vercel is actually building from before pushing.)
+
+
+4. VERCEL
+----------------------------------------------------
+- Project: tech-farhan
+- Default domain: https://tech-farhan.vercel.app
+- Custom domain: https://farhanshahriar.online
+- Required environment variables:
+    NEXT_PUBLIC_SUPABASE_URL       = https://sxvjfhbkusjnvagydgwy.supabase.co
+    NEXT_PUBLIC_SUPABASE_ANON_KEY  = (see .env.local)
+  The anon key is public by design — it ships inside the browser bundle on every
+  page load. It is not a secret. Security comes from the RLS policies, not from
+  hiding this key.
+- Optional:
+    NEXT_PUBLIC_GAME_ORIGIN — if set to a different domain you own, game
+    documents are served from that origin, so game code can never reach the
+    portfolio's admin session. See SETUP.md step 6.
+
+
+5. SUPABASE
+----------------------------------------------------
+A. Account
+   - Login email: nisa88816@gmail.com
+   - Login method: "Continue with GitHub" (Farhanz78)
+   - Organization: Farhanz78's Org (Free plan)
+
+B. Project
+   - Project name: StudyBudy   (named after an earlier project; it IS the
+     portfolio's database)
+   - Project ref: sxvjfhbkusjnvagydgwy
+   - URL: https://sxvjfhbkusjnvagydgwy.supabase.co
+   - Dashboard: https://supabase.com/dashboard/project/sxvjfhbkusjnvagydgwy
+   - Region: South Asia (Mumbai) / ap-south-1, Nano compute, Free plan
+   - Status verified 2026-09-01: REACHABLE, responding in ~630 ms. An older note
+     said "Unhealthy"; that is no longer true.
+   - Free projects pause after 7 days of no activity. If the site suddenly shows
+     no projects, open the dashboard and resume it.
+
+C. Free-tier limits that actually bite
+   - 1 GB storage — fine, the three main games total about 47 MB.
+   - 5 GB/month egress — this is the real ceiling. A 32 MB game is roughly
+     160 plays per month before the quota is gone.
+   - 50 MB maximum per single file.
+
+D. Tables — schema of record is supabase_migration.sql
+   tools
+     id, title, icon_name, html_code
+     kind          'inline' | 'bundle' | 'link'
+     category      'game' | 'web' | 'mobile' | 'tool'
+     storage_path, entry_path          bundle rows
+     external_url, source_url          link rows
+     description, thumbnail_url, tags[], tech[], role_note, year
+     play_count, sort_order, is_published, is_featured
+     bundle_bytes, file_count, created_at, updated_at
+   profiles
+     id, role ('admin'|'user'), full_name, avatar_url, skills[]
+     tagline, bio, email, phone, fiverr_url, location
+   messages
+     id, name, email, body, is_read, created_at
+
+E. Storage buckets
+   avatars  (public)   profile photo
+   games    (public)   uploaded game bundles + cover images, 50 MB per file
+
+F. Existing rows (verified via the API, 2026-09-01) — 5 projects:
+   Study Buddy, Propose Your Crush, Game Tournament App,
+   Blackhole Crash Game, Play And Bkash
+
+G. Authentication
+   - Email + password. Admin-ness is profiles.role = 'admin'.
+   - !! There are currently TWO admin accounts. One is Farhan Shahriar. The
+     other has no name and corresponds to a test login that was created with a
+     trivial password. DELETE IT — see SETUP.md step 3. A guessable admin
+     account on a live site is a full takeover waiting to happen, and it must
+     not be written down in this file either.
+   - Public sign-up must be turned OFF in the dashboard. See SETUP.md step 2.
+
+H. Row Level Security
+   - After supabase_migration.sql: writes are admin-only, gated on
+     public.is_admin(), a SECURITY DEFINER function.
+   - BEFORE that migration is run the old policies are still live, and they let
+     ANY signed-up user write to `tools` and promote themselves to admin. Run
+     the migration.
+
+
+6. HOW A GAME IS SERVED  (the part that is easy to get wrong)
+----------------------------------------------------
+Supabase Storage rewrites text/html to text/plain on every response,
+unconditionally. Pointing an iframe at a stored index.html shows source code as
+text instead of running the game. No bucket setting changes this.
+
+So:
+  - app/g/[id]/route.ts serves the entry HTML from THIS origin as real
+    text/html and injects <base href="...storage.../"> so relative asset paths
+    resolve back to Supabase Storage.
+  - Every other file (js, wasm, textures, audio) streams direct from the Storage
+    CDN. Only a few KB of HTML passes through the server.
+  - app/play/[id]/page.tsx renders components/GameFrame.tsx, which iframes
+    /g/[id].
+
+Both 'inline' and 'bundle' rows go through /g/[id]. Inline rows no longer use a
+blob: URL, because a blob: URL inherits the creating page's origin, which let
+game code read the admin's Supabase session out of localStorage.
+
+The iframe keeps allow-same-origin deliberately: that is what gives a game
+working localStorage and IndexedDB for save data. Removing it gives the frame an
+opaque origin and most WebGL builds then fail during startup. Origin isolation
+is done with NEXT_PUBLIC_GAME_ORIGIN instead.
+
+There is no "anti-theft" script any more. The old one blocked right-click and
+F12; it protected nothing (view-source, the network tab and browser menus are
+untouched by it), it broke games that use right-click as an input, and it hid
+the game's own error output. Do not add it back.
+
+
+7. UPLOAD PIPELINE  (lib/game-upload/)
+----------------------------------------------------
+  read-zip.ts   fflate, dynamically imported so the Node build never enters the
+                server bundle
+  normalize.ts  backslash->slash (Windows "Compressed folder" writes backslash
+                entry names), junk + path-traversal filtering, wrapper-folder
+                peeling, entry-point detection
+  mime.ts       extension -> MIME. REQUIRED: supabase-js silently ignores the
+                contentType option when the body is a Blob or File and uses
+                blob.type instead. Wrong MIME breaks CSS silently, blocks ES
+                modules, and breaks WebAssembly.instantiateStreaming.
+  upload.ts     5-way concurrency, retry with backoff, progress, cleanup
+
+Blocked at upload time, with an explanation shown to the user:
+  - .gz / .br pre-compressed builds (Content-Encoding cannot be set on Supabase
+    Storage, so the browser never decodes them)
+  - any single file over 50 MB
+
+
+8. KEY SOURCE FILES  (actual, verified)
+----------------------------------------------------
+  app/page.tsx             homepage
+  app/admin/page.tsx       admin: upload / manage / messages / profile
+  app/play/[id]/page.tsx   full-screen player page
+  app/g/[id]/route.ts      serves the game document as text/html
+  app/not-found.tsx        404
+  app/layout.tsx           metadata, fonts, preconnect
+  app/globals.css          Tailwind v4 @theme design tokens
+  components/GameCard.tsx  project card
+  components/GameFrame.tsx sandboxed iframe host + loading/error states
+  components/ContactForm.tsx
+  lib/game-upload/*.ts     zip/folder ingest
+  lib/storage.ts           Supabase Storage URL helpers
+  utils/supabase/client.ts Supabase browser client
+  types/index.ts           Tool / Profile / Message types
+  supabase_migration.sql   schema of record
+  SETUP.md                 click-by-click setup steps
+
+
+9. DEVELOPMENT GOTCHAS
+----------------------------------------------------
+- This folder is inside OneDrive. Turbopack's file watcher regularly misses
+  changes here — edits to globals.css and to server components get silently
+  ignored and stale compiled output keeps being served. If a change does not
+  appear: stop the dev server, delete .next, start again. This is environmental,
+  not a bug in the code.
+- Free Supabase projects pause after 7 days idle.
+
+
+10. HOUSE RULES
+----------------------------------------------------
+- Nothing on the public site may mention AI, "AI-assisted", "AI-generated", or
+  any AI tool or vendor name — not in copy, metadata, alt text, placeholders or
+  empty states. Firm requirement from the owner.
+- Explanations to the owner in Bengali; code, identifiers and comments in
+  English. He is not a coder — when he must act, give click-by-click steps.
+- Never claim the game source code is hidden or protected. It is not, and for a
+  browser game it cannot be. Real security is the RLS policies, disabled public
+  sign-up, and origin isolation.
+- Never write a password into this file or any other file in the repo.
