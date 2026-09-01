@@ -72,25 +72,58 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
 
   const verifyAdmin = useCallback(async (userId: string) => {
-    // Prefer the RPC (exists after the migration); fall back to reading the
-    // profile row so this page still works on an un-migrated database.
-    const rpc = await supabase.rpc('is_admin');
-    if (!rpc.error && typeof rpc.data === 'boolean') return rpc.data;
-    const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
-    return data?.role === 'admin';
+    // Every call is guarded: supabase-js normally returns {data, error}, but a
+    // network failure can still throw, and an uncaught throw here used to leave
+    // the page spinning forever because setLoading(false) never ran.
+    try {
+      // Prefer the RPC (exists after the migration); fall back to reading the
+      // profile row so this page still works on an un-migrated database.
+      const rpc = await supabase.rpc('is_admin');
+      if (!rpc.error && typeof rpc.data === 'boolean') return rpc.data;
+    } catch (e) {
+      console.error('[admin] is_admin rpc failed:', e);
+    }
+    try {
+      const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
+      return data?.role === 'admin';
+    } catch (e) {
+      console.error('[admin] profile lookup failed:', e);
+      return false;
+    }
   }, []);
 
   useEffect(() => {
     let alive = true;
 
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!alive) return;
-      if (session?.user) setIsAdmin(await verifyAdmin(session.user.id));
+    // Hard ceiling on the loading state. If Supabase is slow, paused, blocked by
+    // an adblocker/network, or throws somewhere unexpected, the page falls back to the sign-in
+    // form instead of spinning forever.
+    const bail = setTimeout(() => {
       if (alive) setLoading(false);
-    })();
+    }, 2500);
+
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) console.error('[admin] getSession error:', error);
+        
+        if (!alive) return;
+        
+        if (session?.user) {
+          const ok = await verifyAdmin(session.user.id);
+          if (alive) setIsAdmin(ok);
+        }
+      } catch (e) {
+        console.error('[admin] session check failed:', e);
+      } finally {
+        if (alive) {
+          clearTimeout(bail);
+          setLoading(false);
+        }
+      }
+    };
+    
+    checkSession();
 
     const {
       data: { subscription },
@@ -101,12 +134,14 @@ export default function AdminPage() {
         return;
       }
       if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        setIsAdmin(await verifyAdmin(session.user.id));
+        const ok = await verifyAdmin(session.user.id);
+        if (alive) setIsAdmin(ok);
       }
     });
 
     return () => {
       alive = false;
+      clearTimeout(bail);
       subscription.unsubscribe();
     };
   }, [verifyAdmin]);
@@ -807,12 +842,17 @@ function ManageTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('tools')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setTools((data ?? []) as Tool[]);
-    setLoading(false);
+    try {
+      const { data } = await supabase
+        .from('tools')
+        .select('*')
+        .order('created_at', { ascending: false });
+      setTools((data ?? []) as Tool[]);
+    } catch (e) {
+      console.error('[admin] load tools failed:', e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -1209,13 +1249,19 @@ function MessagesTab() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) setNote('Run supabase_migration.sql to enable the contact inbox.');
-      setRows((data ?? []) as Message[]);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) setNote('Run supabase_migration.sql to enable the contact inbox.');
+        setRows((data ?? []) as Message[]);
+      } catch (e) {
+        console.error('[admin] load messages failed:', e);
+        setNote('Failed to load messages due to network error.');
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -1273,26 +1319,30 @@ function ProfileTab() {
 
   useEffect(() => {
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return setLoading(false);
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      if (data) {
-        setForm({
-          full_name: data.full_name ?? '',
-          tagline: data.tagline ?? '',
-          bio: data.bio ?? '',
-          skills: (data.skills ?? []).join(', '),
-          email: data.email ?? '',
-          phone: data.phone ?? '',
-          fiverr_url: data.fiverr_url ?? '',
-          location: data.location ?? '',
-          avatar_url: data.avatar_url ?? '',
-        });
-        setGallery(data.gallery ?? []);
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (!user || userError) return;
+        
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (data) {
+          setForm({
+            full_name: data.full_name ?? '',
+            tagline: data.tagline ?? '',
+            bio: data.bio ?? '',
+            skills: (data.skills ?? []).join(', '),
+            email: data.email ?? '',
+            phone: data.phone ?? '',
+            fiverr_url: data.fiverr_url ?? '',
+            location: data.location ?? '',
+            avatar_url: data.avatar_url ?? '',
+          });
+          setGallery(data.gallery ?? []);
+        }
+      } catch (e) {
+        console.error('[admin] load profile failed:', e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, []);
 

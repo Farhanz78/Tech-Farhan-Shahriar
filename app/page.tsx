@@ -37,7 +37,7 @@ export default async function Home() {
       <section className="relative overflow-hidden">
         <HeroCanvas />
 
-        <div className="relative mx-auto max-w-6xl px-6 py-24 md:py-36">
+        <div className="relative mx-auto max-w-6xl px-6 py-12 md:py-16">
           <div className="max-w-3xl animate-rise">
             {/* No portrait here on purpose — the photos live in the stacked
                 carousel above the About section instead. */}
@@ -79,7 +79,7 @@ export default async function Home() {
               </Magnetic>
             </div>
 
-            <dl className="mt-12 flex flex-wrap gap-x-10 gap-y-4">
+            <dl className="mt-10 flex flex-wrap gap-x-10 gap-y-4">
               <Stat value={String(projectCount)} label="Projects shipped" />
               <Stat value="4" label="Platforms covered" />
               <Stat value="End to end" label="Design to deployment" />
@@ -89,7 +89,7 @@ export default async function Home() {
       </section>
 
       {/* --------------------------------------------------------- services */}
-      <section id="services" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
+      <section id="services" className="mx-auto max-w-6xl px-6 py-10 md:py-14">
         <SectionHead
           eyebrow="What I do"
           title="Hire me for"
@@ -124,14 +124,14 @@ export default async function Home() {
       </section>
 
       {/* ------------------------------------------------------------ about */}
-      <section id="about" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
+      <section id="about" className="mx-auto max-w-6xl px-6 py-10 md:py-14">
         {gallery.length > 0 && (
-          <div className="mx-auto mb-14 max-w-xl">
+          <div className="mx-auto mb-10 max-w-xl">
             <PhotoCarousel photos={gallery} alt={p.name} />
           </div>
         )}
 
-        <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
           <div>
             <SectionHead eyebrow="About" title={`Who you'd be working with`} />
             <div className="max-w-2xl space-y-4 text-muted">
@@ -177,7 +177,7 @@ export default async function Home() {
       </section>
 
       {/* ---------------------------------------------------------- process */}
-      <section className="mx-auto max-w-6xl px-6 py-20 md:py-28">
+      <section className="mx-auto max-w-6xl px-6 py-10 md:py-14">
         <div className="rounded-3xl border border-hairline bg-surface/50 p-8 md:p-12">
           <SectionHead
             eyebrow="How it works"
@@ -194,7 +194,7 @@ export default async function Home() {
       </section>
 
       {/* -------------------------------------------------------- work CTA */}
-      <section className="mx-auto max-w-6xl px-6 py-8">
+      <section className="mx-auto max-w-6xl px-6 py-4">
         <Link
           href="/work"
           className="group flex flex-col items-start justify-between gap-6 rounded-3xl border border-hairline bg-gradient-to-br from-surface to-ink p-8 transition-colors hover:border-lime/40 md:flex-row md:items-center md:p-12"
@@ -219,7 +219,7 @@ export default async function Home() {
       </section>
 
       {/* --------------------------------------------------------- contact */}
-      <section id="contact" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
+      <section id="contact" className="mx-auto max-w-6xl px-6 py-10 md:py-14">
         <SectionHead
           eyebrow="Get in touch"
           title="Let's build something"

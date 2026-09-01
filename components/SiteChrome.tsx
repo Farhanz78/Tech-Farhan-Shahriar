@@ -60,7 +60,7 @@ export function SectionHead({
   sub?: string;
 }) {
   return (
-    <div className="mb-8">
+    <div className="mb-6">
       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-lime">{eyebrow}</p>
       <h2 className="font-display text-3xl font-extrabold tracking-tight md:text-4xl">{title}</h2>
       {sub && <p className="mt-3 max-w-2xl text-muted">{sub}</p>}
