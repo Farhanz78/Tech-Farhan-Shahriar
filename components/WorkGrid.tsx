@@ -19,10 +19,8 @@ export default function WorkGrid({ projects }: { projects: Tool[] }) {
   const [active, setActive] = useState<ToolCategory | 'all'>('all');
   const [open, setOpen] = useState<Tool | null>(null);
 
-  const present = useMemo(
-    () => ORDER.filter((c) => projects.some((p) => p.category === c)),
-    [projects],
-  );
+  // Always show all category tabs so the user can see the categorization exists
+  const present = ORDER;
 
   const shown = useMemo(
     () => (active === 'all' ? projects : projects.filter((p) => p.category === active)),
@@ -47,31 +45,36 @@ export default function WorkGrid({ projects }: { projects: Tool[] }) {
 
   return (
     <>
-      {present.length > 1 && (
-        <div className="mb-8 flex flex-wrap gap-2">
+      <div className="mb-8 flex flex-wrap gap-2">
+        <FilterChip
+          label="All"
+          count={projects.length}
+          active={active === 'all'}
+          onClick={() => setActive('all')}
+        />
+        {present.map((c) => (
           <FilterChip
-            label="All"
-            count={projects.length}
-            active={active === 'all'}
-            onClick={() => setActive('all')}
+            key={c}
+            label={CATEGORY_LABEL[c]}
+            count={counts.get(c) ?? 0}
+            active={active === c}
+            onClick={() => setActive(c)}
           />
-          {present.map((c) => (
-            <FilterChip
-              key={c}
-              label={CATEGORY_LABEL[c]}
-              count={counts.get(c) ?? 0}
-              active={active === c}
-              onClick={() => setActive(c)}
-            />
+        ))}
+      </div>
+
+      {!shown.length ? (
+        <div className="rounded-2xl border border-dashed border-hairline bg-surface/40 px-6 py-16 text-center">
+          <p className="text-lg font-medium text-muted">No {active !== 'all' ? CATEGORY_LABEL[active].toLowerCase() : 'projects'} yet</p>
+          <p className="mt-1 text-sm text-subtle">Check back soon.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {shown.map((p, i) => (
+            <ProjectCard key={p.id} tool={p} priority={i < 3} onOpen={() => setOpen(p)} />
           ))}
         </div>
       )}
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {shown.map((p, i) => (
-          <ProjectCard key={p.id} tool={p} priority={i < 3} onOpen={() => setOpen(p)} />
-        ))}
-      </div>
 
       {open && <ProjectModal tool={open} onClose={() => setOpen(null)} />}
     </>
