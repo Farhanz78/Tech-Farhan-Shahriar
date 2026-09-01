@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as icons from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
+import ImageCropper from '@/components/ImageCropper';
 import { readZip, describeZipError } from '@/lib/game-upload/read-zip';
 import {
   normalizeZipFiles,
@@ -801,10 +802,17 @@ function DeployTab() {
 function ThumbnailPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [cropSrc, setCropSrc] = useState('');
 
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCropSrc(URL.createObjectURL(file));
+    e.target.value = '';
+  }
+
+  async function upload(file: File) {
+    setCropSrc('');
     setBusy(true);
     setErr('');
     const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
@@ -819,36 +827,45 @@ function ThumbnailPicker({ value, onChange }: { value: string; onChange: (v: str
       onChange(data.publicUrl);
     }
     setBusy(false);
-    e.target.value = '';
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-24 h-14 rounded-lg overflow-hidden bg-surface-2 border border-hairline shrink-0 grid place-items-center">
-        {value ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={value} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <icons.Image className="w-4 h-4 text-subtle" />
-        )}
+    <>
+      <div className="flex items-center gap-3">
+        <div className="w-24 h-14 rounded-lg overflow-hidden bg-surface-2 border border-hairline shrink-0 grid place-items-center">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <icons.Image className="w-4 h-4 text-subtle" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <label className="inline-block px-3 py-2 rounded-lg bg-surface-2 border border-hairline text-sm cursor-pointer hover:border-lime/40 transition-colors">
+            {busy ? 'Uploading…' : value ? 'Replace' : 'Upload image'}
+            <input type="file" accept="image/*" className="hidden" onChange={handleSelect} disabled={busy} />
+          </label>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="ml-2 text-xs text-subtle hover:text-danger"
+            >
+              Remove
+            </button>
+          )}
+          {err && <p className="text-xs text-danger mt-1">{err}</p>}
+        </div>
       </div>
-      <div className="min-w-0">
-        <label className="inline-block px-3 py-2 rounded-lg bg-surface-2 border border-hairline text-sm cursor-pointer hover:border-lime/40 transition-colors">
-          {busy ? 'Uploading…' : value ? 'Replace' : 'Upload image'}
-          <input type="file" accept="image/*" className="hidden" onChange={upload} disabled={busy} />
-        </label>
-        {value && (
-          <button
-            type="button"
-            onClick={() => onChange('')}
-            className="ml-2 text-xs text-subtle hover:text-danger"
-          >
-            Remove
-          </button>
-        )}
-        {err && <p className="text-xs text-danger mt-1">{err}</p>}
-      </div>
-    </div>
+      {cropSrc && (
+        <ImageCropper
+          imageSrc={cropSrc}
+          aspect={16 / 9}
+          onCropDone={upload}
+          onCancel={() => setCropSrc('')}
+        />
+      )}
+    </>
   );
 }
 
@@ -1441,9 +1458,17 @@ function ProfileTab() {
     setNote('Saved.');
   }
 
-  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+  const [avatarCropSrc, setAvatarCropSrc] = useState('');
+
+  async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarCropSrc(URL.createObjectURL(file));
+    e.target.value = '';
+  }
+
+  async function uploadAvatar(file: File) {
+    setAvatarCropSrc('');
     setUploading(true);
     const ext = file.name.split('.').pop() || 'jpg';
     const key = `${crypto.randomUUID()}.${ext}`;
@@ -1454,7 +1479,6 @@ function ProfileTab() {
       setForm((f) => ({ ...f, avatar_url: data.publicUrl }));
     }
     setUploading(false);
-    e.target.value = '';
   }
 
   if (loading) return <icons.Loader2 className="w-5 h-5 text-lime animate-spin" />;
@@ -1463,6 +1487,7 @@ function ProfileTab() {
     'w-full bg-surface border border-hairline rounded-xl px-4 py-3 outline-none focus:border-lime/60 transition-colors placeholder:text-subtle';
 
   return (
+    <>
     <form onSubmit={save} className="space-y-5 max-w-2xl">
       <h1 className="text-2xl font-bold">Profile</h1>
 
@@ -1477,7 +1502,7 @@ function ProfileTab() {
         </div>
         <label className="px-4 py-2 rounded-lg bg-surface-2 border border-hairline text-sm cursor-pointer hover:border-lime/40 transition-colors">
           {uploading ? 'Uploading…' : 'Change photo'}
-          <input type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} disabled={uploading} />
         </label>
       </div>
 
@@ -1558,6 +1583,15 @@ function ProfileTab() {
         {saving ? 'Saving…' : 'Save profile'}
       </button>
     </form>
+    {avatarCropSrc && (
+      <ImageCropper
+        imageSrc={avatarCropSrc}
+        aspect={1}
+        onCropDone={uploadAvatar}
+        onCancel={() => setAvatarCropSrc('')}
+      />
+    )}
+    </>
   );
 }
 
@@ -1578,34 +1612,39 @@ function GalleryManager({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [progress, setProgress] = useState('');
+  const [cropQueue, setCropQueue] = useState<string[]>([]);
 
   async function addFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
+    
+    // Create object URLs for cropping
+    setCropQueue(files.map(f => URL.createObjectURL(f)));
+    e.target.value = '';
+  }
+
+  async function handleCropDone(croppedFile: File) {
     setBusy(true);
     setErr('');
-
-    const added: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setProgress(`Uploading ${i + 1} of ${files.length}…`);
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const key = `profile/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from(GAMES_BUCKET).upload(key, file, {
-        upsert: true,
-        cacheControl: '31536000',
-      });
-      if (error) {
-        setErr(error.message);
-        break;
-      }
-      added.push(supabase.storage.from(GAMES_BUCKET).getPublicUrl(key).data.publicUrl);
+    setProgress(`Uploading cropped image…`);
+    
+    const key = `profile/${crypto.randomUUID()}.jpg`;
+    const { error } = await supabase.storage.from(GAMES_BUCKET).upload(key, croppedFile, {
+      upsert: true,
+      cacheControl: '31536000',
+    });
+    
+    if (error) {
+      setErr(error.message);
+    } else {
+      const url = supabase.storage.from(GAMES_BUCKET).getPublicUrl(key).data.publicUrl;
+      onChange([...photos, url]);
     }
-
-    if (added.length) onChange([...photos, ...added]);
+    
     setProgress('');
     setBusy(false);
-    e.target.value = '';
+    // Remove the processed image from the queue
+    setCropQueue(q => q.slice(1));
   }
 
   function move(from: number, to: number) {
@@ -1683,11 +1722,20 @@ function GalleryManager({
           multiple
           className="hidden"
           onChange={addFiles}
-          disabled={busy}
+          disabled={busy || cropQueue.length > 0}
         />
       </label>
 
       {err && <p className="text-sm text-danger">{err}</p>}
+
+      {cropQueue.length > 0 && (
+        <ImageCropper
+          imageSrc={cropQueue[0]}
+          aspect={4 / 3}
+          onCropDone={handleCropDone}
+          onCancel={() => setCropQueue(q => q.slice(1))}
+        />
+      )}
     </div>
   );
 }
