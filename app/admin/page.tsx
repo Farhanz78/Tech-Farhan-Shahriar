@@ -150,17 +150,19 @@ export default function AdminPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setSigningIn(true);
-    setAuthError('');
+    setAuthError('Connecting to server...');
     
     let alive = true;
     const bail = setTimeout(() => {
       if (alive) {
         setSigningIn(false);
-        setAuthError('Sign in timed out. Please check your connection.');
+        setAuthError('Request timed out after 15 seconds. Please try again.');
+        alive = false;
       }
-    }, 6000);
+    }, 15000);
 
     try {
+      setAuthError('Authenticating...');
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (!alive) return;
       
@@ -169,11 +171,17 @@ export default function AdminPage() {
         setSigningIn(false);
         return;
       }
+      
       if (data.session?.user) {
+        setAuthError('Verifying admin permissions...');
         const ok = await verifyAdmin(data.session.user.id);
         if (!alive) return;
         setIsAdmin(ok);
-        if (!ok) setAuthError('That account is not an administrator.');
+        if (!ok) {
+          setAuthError('That account is not an administrator.');
+        } else {
+          setAuthError('');
+        }
       }
     } catch (err) {
       console.error('[admin] login error:', err);
@@ -218,7 +226,11 @@ export default function AdminPage() {
               placeholder="••••••••"
               className="w-full bg-ink border border-hairline rounded-xl px-4 py-3 outline-none focus:border-lime/60"
             />
-            {authError && <p className="text-sm text-danger">{authError}</p>}
+            {authError && (
+              <p className={`text-sm ${authError.includes('...') ? 'text-subtle' : 'text-danger'}`}>
+                {authError}
+              </p>
+            )}
             <button
               type="submit"
               disabled={signingIn}
