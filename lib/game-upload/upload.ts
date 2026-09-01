@@ -89,6 +89,9 @@ export async function uploadGameFiles(
     current: '',
     failed: [],
   };
+  
+  // Dispatch initial progress immediately so the UI shows up
+  onProgress({ ...progress, failed: [...progress.failed] });
 
   // Biggest first: keeps the pool saturated and surfaces size errors early.
   const queue = [...items].sort((a, b) => b.size - a.size);
@@ -99,6 +102,9 @@ export async function uploadGameFiles(
       if (signal?.aborted) throw new DOMException('Upload cancelled', 'AbortError');
       const item = queue[cursor++];
       progress.current = item.path;
+      // Show which file we are currently uploading
+      onProgress({ ...progress, failed: [...progress.failed] });
+      
       try {
         await uploadOne(`${prefix}/${item.path}`, item.body, item.path);
       } catch (err) {
@@ -109,6 +115,7 @@ export async function uploadGameFiles(
       }
       progress.filesDone++;
       progress.bytesDone += item.size;
+      // Show progress after upload completes
       onProgress({ ...progress, failed: [...progress.failed] });
     }
   }
