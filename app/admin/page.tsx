@@ -376,6 +376,27 @@ function DeployTab() {
         setError('No HTML file was found inside that archive.');
         return;
       }
+
+      // Auto-fill metadata if portfolio.json is present
+      const metaFile = n.files.find((f) => f.path === 'portfolio.json' || f.path.endsWith('/portfolio.json'));
+      if (metaFile) {
+        try {
+          const metaText = new TextDecoder().decode(metaFile.bytes);
+          const parsed = JSON.parse(metaText);
+          setMeta((prev) => ({
+            ...prev,
+            title: parsed.title || prev.title,
+            description: parsed.description || prev.description,
+            category: parsed.category || prev.category,
+            tags: parsed.tags ? (Array.isArray(parsed.tags) ? parsed.tags.join(', ') : parsed.tags) : prev.tags,
+            tech: parsed.tech ? (Array.isArray(parsed.tech) ? parsed.tech.join(', ') : parsed.tech) : prev.tech,
+            ctaLabel: parsed.ctaLabel || prev.ctaLabel,
+          }));
+        } catch (e) {
+          console.warn('Could not parse portfolio.json', e);
+        }
+      }
+
       const entryFile = n.files.find((f) => f.path === n.entryPath);
       const entryText = entryFile ? new TextDecoder().decode(entryFile.bytes) : '';
       const rootRefs = findRootRelativeRefs(entryText);
