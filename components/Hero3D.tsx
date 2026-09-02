@@ -63,12 +63,9 @@ export default function Hero3D() {
 
       const group = new THREE.Group();
       const updateLayout = (w: number) => {
-        const isMobile = w < 640;
-        const offsetX = isMobile ? 0.1 : w < 900 ? 0.9 : 2.1;
-        const offsetY = isMobile ? 0.6 : 0.35;
-        const scale = isMobile ? 0.72 : 1.0;
-        group.scale.setScalar(scale);
-        group.position.set(offsetX, offsetY, 0);
+        const offsetX = w < 900 ? 0.9 : 2.1;
+        group.position.set(offsetX, 0.35, 0);
+        group.scale.setScalar(1.0);
       };
       updateLayout(width);
       scene.add(group);
