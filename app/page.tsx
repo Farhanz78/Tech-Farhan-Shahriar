@@ -161,11 +161,11 @@ export default async function Home() {
               <p className="mb-4 text-xs uppercase tracking-[0.12em] text-subtle">
                 Areas of Expertise
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {p.skills.map((s) => (
                   <span
                     key={s}
-                    className="flex items-center justify-center rounded-lg border border-hairline bg-surface-2 px-3 py-1.5 text-center text-sm text-muted"
+                    className="rounded-lg border border-hairline bg-surface-2 px-3 py-1.5 text-sm text-muted"
                   >
                     {s}
                   </span>
