@@ -17,11 +17,7 @@ export default function HeroCanvas() {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    // Deferred to idle so the decision never competes with first paint.
-    const run = () => setEnabled(shouldRender3D());
-    const w = window as unknown as { requestIdleCallback?: (cb: () => void) => number };
-    if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(run);
-    else setTimeout(run, 200);
+    setEnabled(shouldRender3D());
   }, []);
 
   return (

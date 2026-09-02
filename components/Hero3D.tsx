@@ -20,15 +20,7 @@ import { useEffect, useRef } from 'react';
 export function shouldRender3D(): boolean {
   if (typeof window === 'undefined') return false;
 
-  // Respect Data Saver.
-  const conn = (navigator as unknown as { connection?: { saveData?: boolean } }).connection;
-  if (conn?.saveData) return false;
-
-  // Very small viewports get the static fallback: the scene would be mostly
-  // hidden behind the text anyway, and low-end phones are where it hurts most.
-  if (window.innerWidth < 640) return false;
-
-  // Finally, is WebGL actually available?
+  // Check WebGL availability
   try {
     const c = document.createElement('canvas');
     return !!(c.getContext('webgl2') || c.getContext('webgl'));
@@ -70,11 +62,15 @@ export default function Hero3D() {
       mount.appendChild(renderer.domElement);
 
       const group = new THREE.Group();
-      // Sit the object to the right of the headline rather than behind it, so
-      // the type stays clean. Pulled in on narrow viewports where there is no
-      // room beside the text.
-      const offsetX = width < 900 ? 0.9 : 2.1;
-      group.position.set(offsetX, 0.35, 0);
+      const updateLayout = (w: number) => {
+        const isMobile = w < 640;
+        const offsetX = isMobile ? 0.1 : w < 900 ? 0.9 : 2.1;
+        const offsetY = isMobile ? 0.6 : 0.35;
+        const scale = isMobile ? 0.72 : 1.0;
+        group.scale.setScalar(scale);
+        group.position.set(offsetX, offsetY, 0);
+      };
+      updateLayout(width);
       scene.add(group);
 
       // Outer wireframe shell.
@@ -138,15 +134,23 @@ export default function Hero3D() {
         target.x = (e.clientX / window.innerWidth) * 2 - 1;
         target.y = (e.clientY / window.innerHeight) * 2 - 1;
       };
+      const onTouchMove = (e: TouchEvent) => {
+        if (e.touches && e.touches.length > 0) {
+          target.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+          target.y = (e.touches[0].clientY / window.innerHeight) * 2 - 1;
+        }
+      };
       window.addEventListener('pointermove', onPointerMove, { passive: true });
+      window.addEventListener('touchmove', onTouchMove, { passive: true });
 
       const onResize = () => {
         if (!mountRef.current) return;
-        const w = mountRef.current.clientWidth;
-        const h = mountRef.current.clientHeight;
+        const w = mountRef.current.clientWidth || window.innerWidth;
+        const h = mountRef.current.clientHeight || window.innerHeight;
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         renderer.setSize(w, h);
+        updateLayout(w);
       };
       window.addEventListener('resize', onResize);
 
@@ -194,6 +198,7 @@ export default function Hero3D() {
         cancelAnimationFrame(raf);
         io.disconnect();
         window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('touchmove', onTouchMove);
         window.removeEventListener('resize', onResize);
         document.removeEventListener('visibilitychange', onVisibility);
         shellGeo.dispose();

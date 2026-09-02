@@ -62,6 +62,47 @@ games and fit the free-tier egress budget.
 
 Ready-made 16:9 cover images are at `Desktop\portfolio-covers\`.
 
+### Creating a portfolio ZIP
+
+When zipping a game's `FARHAN PORTFOLIO` folder for upload:
+
+1. **Never include the old `.zip` inside the new zip.** Delete or exclude any
+   existing `*.zip` before running `Compress-Archive`. This is the #1 cause of
+   bloated ZIPs — a 150 MB zip inside a new zip doubles the size for nothing.
+2. **Exclude `run_game.bat`** — it starts a local Python server, useless on the
+   web.
+3. **Only include files the website actually needs:** `index.html`, `game.js`,
+   `portfoliosdk.js` (if present), `portfolio.json`, and the `assets/` and
+   `assets_gen/` directories. Nothing else.
+4. **Include a `portfolio.json`** at the root of the ZIP with metadata fields
+   (`title`, `description`, `category`, `ctaLabel`, `tech[]`, `tags[]`). The
+   admin panel reads this file on ZIP selection and auto-fills the form.
+
+Example (PowerShell):
+```powershell
+$src = "...\FARHAN PORTFOLIO"
+$tmp = "...\\_zip_temp"
+Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $tmp
+Copy-Item "$src\index.html","$src\game.js","$src\portfoliosdk.js","$src\portfolio.json" $tmp -ErrorAction SilentlyContinue
+Copy-Item "$src\assets" "$tmp\assets" -Recurse
+Copy-Item "$src\assets_gen" "$tmp\assets_gen" -Recurse -ErrorAction SilentlyContinue
+Compress-Archive -Path "$tmp\*" -DestinationPath "$src\game-name-portfolio.zip" -Force
+Remove-Item $tmp -Recurse -Force
+```
+
+### Updating an existing game on the site (no re-upload needed)
+
+When the user edits only a few files (e.g. `index.html`, `portfoliosdk.js`) in
+a game that is already uploaded, **do not re-upload the entire game**. Instead:
+
+1. Find the existing `storage_path` from the `tools` table (e.g. `g/uuid`).
+2. Use `supabase.storage.from('games').upload(path, bytes, { upsert: true })`
+   to overwrite only the changed files.
+3. For new files, upload them to the same `storage_path` and bump `file_count`
+   in the DB.
+4. Set `cacheControl: '0'` on updated files so visitors get the new version.
+
 ### Two things that block an upload
 
 - **`.gz` or `.br` files in the build.** Supabase Storage cannot send
