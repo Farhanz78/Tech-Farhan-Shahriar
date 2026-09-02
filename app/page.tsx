@@ -30,7 +30,7 @@ export default async function Home() {
   const gallery = profile?.gallery?.length ? profile.gallery : p.avatar ? [p.avatar] : [];
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-ink text-text">
+    <div className="min-h-screen bg-ink text-text">
       <SiteHeader name={p.name} />
 
       {/* ------------------------------------------------------------- hero */}

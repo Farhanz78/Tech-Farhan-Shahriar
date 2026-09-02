@@ -126,10 +126,11 @@ export default function PhotoCarousel({ photos, alt }: { photos: string[]; alt: 
     >
       {!single && <Arrow dir="left" onClick={() => go(active - 1)} />}
 
-      {/* We removed overflow-x-clip here because on mobile, the flex-1 container is narrow
-          and aggressively clips the flanking cards. Instead, we let them bleed out, and rely
-          on the page-level overflow-x-hidden to prevent horizontal scrolling. */}
-      <div className="min-w-0 flex-1" style={{ perspective: 1200 }}>
+      {/* overflow-x-clip, not overflow-hidden: the flanking cards are pushed
+          ±52% of their own width and would otherwise widen the page and add a
+          horizontal scrollbar. `clip` on one axis leaves the other visible, so
+          the card shadows are not cut off vertically. */}
+      <div className="min-w-0 flex-1 overflow-x-clip" style={{ perspective: 1200 }}>
         {/* Fixed-height stage. The cards are absolute inside it, so the section
             below never shifts as they move. */}
         <div className="relative mx-auto h-[340px] w-full max-w-[240px] sm:h-[400px] sm:max-w-[290px]">
