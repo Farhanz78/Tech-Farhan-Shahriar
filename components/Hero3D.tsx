@@ -19,7 +19,6 @@ import { useEffect, useRef } from 'react';
 
 export function shouldRender3D(): boolean {
   if (typeof window === 'undefined') return false;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
 
   // Respect Data Saver.
   const conn = (navigator as unknown as { connection?: { saveData?: boolean } }).connection;
@@ -28,11 +27,6 @@ export function shouldRender3D(): boolean {
   // Very small viewports get the static fallback: the scene would be mostly
   // hidden behind the text anyway, and low-end phones are where it hurts most.
   if (window.innerWidth < 640) return false;
-
-  // A device with very few cores is a reliable proxy for "will not hold 60fps".
-  if (typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 2) {
-    return false;
-  }
 
   // Finally, is WebGL actually available?
   try {
