@@ -12,7 +12,7 @@ developer** and also hosts and runs his own browser games.
 Read `Project_Details_For_Claude.txt` in the project root for accounts, schema
 and architecture. Read `SETUP.md` for the owner-facing setup steps.
 
-## The three rules
+## The four rules
 
 1. **No AI mention anywhere a visitor can see.** Not in copy, metadata, alt
    text, placeholders, empty states or OG tags. This is absolute and the owner
@@ -24,6 +24,7 @@ and architecture. Read `SETUP.md` for the owner-facing setup steps.
 3. **Verify by running it.** This project has produced "it builds, therefore it
    works" mistakes. Run `npx next build`, start the dev server, and look at the
    page before claiming anything works.
+4. **Gallery Constraint.** The gallery component (`components/PhotoCarousel.tsx`) and its wrapper layout were designed exactly as the user wants. **Never modify `PhotoCarousel.tsx`.** Never remove `overflow-x-clip` or alter its CSS/flex layout to "fix" mobile responsiveness. If the user reports issues with the gallery, ensure it matches Claude's original layout exactly; do not attempt new design interventions.
 
 ## Site structure
 
