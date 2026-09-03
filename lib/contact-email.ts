@@ -69,9 +69,12 @@ export function enquirySubject(name: string): string {
  * Plain-text alternative. Not optional: a message with no text part scores
  * higher as spam, and some clients show it instead of the HTML.
  */
-export function enquiryText(e: Enquiry, whenLabel: string): string {
+export function enquiryText(e: Enquiry, whenLabel: string, verified = true): string {
   return [
     'NEW ENQUIRY — farhanshahriar.online',
+    ...(verified
+      ? []
+      : ['', '!! SPAM CHECK DID NOT RUN — this message was delivered unverified.']),
     '',
     `Name:  ${e.name}`,
     `Email: ${e.email}`,
@@ -85,9 +88,32 @@ export function enquiryText(e: Enquiry, whenLabel: string): string {
   ].join('\n');
 }
 
-export function enquiryHtml(e: Enquiry, whenLabel: string): string {
+export function enquiryHtml(e: Enquiry, whenLabel: string, verified = true): string {
   const name = esc(e.name);
   const email = esc(e.email);
+
+  // Shown only when the spam check did not run -- because the widget was
+  // blocked, Cloudflare was unreachable, or Turnstile is not configured. The
+  // message is delivered either way (a lost client is worse than a spam mail),
+  // so this strip is how he tells the two apart without reading a log.
+  const unverifiedStrip = verified
+    ? ''
+    : `<tr>
+          <td style="padding:0 30px 4px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:#2A2205;border:1px solid #5C4A0A;border-radius:10px;">
+              <tr>
+                <td style="padding:11px 14px;font-family:Arial,Helvetica,sans-serif;">
+                  <p style="margin:0;color:#FFB020;font-size:12px;line-height:1.5;">
+                    <strong>Spam check did not run.</strong> The Turnstile widget was blocked or
+                    unreachable for this visitor, so this message was delivered unverified.
+                    Treat it with a little more caution than usual.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`;
   const replyHref = `mailto:${encodeURIComponent(e.email)}?subject=${encodeURIComponent(
     `Re: your enquiry — Farhan Shahriar`,
   )}`;
@@ -143,9 +169,11 @@ export function enquiryHtml(e: Enquiry, whenLabel: string): string {
           </td>
         </tr>
 
+        ${unverifiedStrip}
+
         <!-- Sender details -->
         <tr>
-          <td style="padding:0 30px;">
+          <td style="padding:${verified ? '0' : '10px'} 30px 0;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
                    style="background:${INK};border:1px solid ${HAIRLINE};border-radius:10px;">
               <tr>
@@ -234,6 +262,7 @@ export function enquiryHtml(e: Enquiry, whenLabel: string): string {
 export async function sendViaResend(
   e: Enquiry,
   whenLabel: string,
+  verified = true,
 ): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   const to = process.env.CONTACT_TO_EMAIL;
@@ -251,9 +280,11 @@ export async function sendViaResend(
       body: JSON.stringify({
         from,
         to: [to],
-        subject: enquirySubject(e.name),
-        html: enquiryHtml(e, whenLabel),
-        text: enquiryText(e, whenLabel),
+        // The subject carries the flag too, so it is visible in the inbox list
+        // without opening the message.
+        subject: verified ? enquirySubject(e.name) : `[unverified] ${enquirySubject(e.name)}`,
+        html: enquiryHtml(e, whenLabel, verified),
+        text: enquiryText(e, whenLabel, verified),
         // Hitting Reply in Gmail answers the visitor, not the sending domain.
         reply_to: e.email,
       }),

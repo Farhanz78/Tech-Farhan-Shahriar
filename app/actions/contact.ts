@@ -75,13 +75,43 @@ export type ContactResult =
  * change the `return true` on the misconfigured branch to `return false`, and
  * nothing else needs to move.
  */
-async function verifyTurnstile(token: string | undefined, ip: string | null): Promise<boolean> {
+/**
+ * Three outcomes, not two — and the middle one is the point.
+ *
+ *   'verified'   Cloudflare confirmed a real token.
+ *   'rejected'   A token was supplied and Cloudflare REFUSED it. That is a
+ *                forgery or a replay, and it is blocked.
+ *   'unverified' No token existed to check: Turnstile is not configured, or the
+ *                widget never loaded in the visitor's browser.
+ *
+ * WHY 'unverified' IS LET THROUGH INSTEAD OF BLOCKED
+ * The first version failed closed on a missing token. That is the textbook
+ * answer and it is wrong for this site. `challenges.cloudflare.com` is a
+ * third-party script, and a privacy extension, a corporate proxy, a DNS
+ * blocker or a flaky network can stop it loading. Under fail-closed, such a
+ * visitor gets "the anti-spam check did not pass" and can NEVER contact him,
+ * no matter how many times they try — a real client, lost silently, with
+ * nothing in any log to say it happened. This was observed live: Turnstile
+ * error 110200 (domain not on the widget's allow-list) meant no token could be
+ * produced at all, and every submission would have been refused.
+ *
+ * A forged token is still blocked, the honeypot still runs, and Zod still
+ * validates. The message simply arrives MARKED as unverified so he can see
+ * which enquiries were not checked. Spam he can delete; a lost client he never
+ * learns about. Same trade as the misconfiguration branch below, made
+ * explicitly rather than by omission.
+ */
+type TurnstileResult = 'verified' | 'unverified' | 'rejected';
+
+async function verifyTurnstile(
+  token: string | undefined,
+  ip: string | null,
+): Promise<TurnstileResult> {
   const secret = serverSecret('TURNSTILE_SECRET_KEY');
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-  // Turnstile not set up at all. Expected before the owner completes STEP G of
-  // the Cloudflare setup; the honeypot and Zod still apply.
-  if (!secret && !siteKey) return true;
+  // Turnstile not set up at all. The honeypot and Zod still apply.
+  if (!secret && !siteKey) return 'unverified';
 
   if (!secret) {
     console.error(
@@ -90,12 +120,18 @@ async function verifyTurnstile(token: string | undefined, ip: string | null): Pr
         'token cannot be verified, so it is currently protecting nothing. ' +
         'Add TURNSTILE_SECRET_KEY in Vercel (mark it Sensitive) and redeploy.',
     );
-    return true;
+    return 'unverified';
   }
 
-  // Secret exists but the browser sent no token: either the widget failed to
-  // load or someone posted to this action directly. Fail closed.
-  if (!token) return false;
+  // The widget produced nothing. Usually it was blocked or failed to load.
+  if (!token) {
+    console.warn(
+      '[contact] No Turnstile token was supplied — the widget was blocked, ' +
+        'failed to load, or the domain is not on the widget allow-list ' +
+        '(Cloudflare error 110200). Letting the message through, marked unverified.',
+    );
+    return 'unverified';
+  }
 
   try {
     const form = new FormData();
@@ -113,21 +149,28 @@ async function verifyTurnstile(token: string | undefined, ip: string | null): Pr
     });
 
     if (!res.ok) {
+      // Cloudflare itself is unhealthy. Not the visitor's fault, so this is
+      // 'unverified' rather than 'rejected' -- an outage at Cloudflare must not
+      // take the contact form down with it.
       console.error('[contact] Turnstile siteverify HTTP', res.status);
-      return false;
+      return 'unverified';
     }
 
     const data = (await res.json()) as { success?: boolean; 'error-codes'?: string[] };
     if (!data.success) {
+      // A token WAS presented and Cloudflare refused it. This is the case worth
+      // blocking: forged, replayed, or from another site's widget.
       console.warn('[contact] Turnstile rejected the token:', data['error-codes']);
-      return false;
+      return 'rejected';
     }
-    return true;
+    return 'verified';
   } catch (err) {
     console.error('[contact] Turnstile verification threw:', err);
-    // Network failure talking to Cloudflare. Fail closed -- an unverifiable
-    // token is not a verified one.
-    return false;
+    // The network call to Cloudflare failed or timed out. The visitor did
+    // nothing wrong and may have presented a perfectly good token, so this is
+    // 'unverified', not 'rejected'. Letting a DNS blip silently swallow an
+    // enquiry is the failure this whole tri-state exists to avoid.
+    return 'unverified';
   }
 }
 
@@ -142,15 +185,14 @@ async function verifyTurnstile(token: string | undefined, ip: string | null): Pr
  * and read nothing. It is read here on the server anyway, since the action
  * already runs there.
  */
-async function sendEmailNotification(msg: {
-  name: string;
-  email: string;
-  body: string;
-}): Promise<boolean> {
+async function sendEmailNotification(
+  msg: { name: string; email: string; body: string },
+  verified: boolean,
+): Promise<boolean> {
   // Resend first: it is the only one of the two that can carry the designed
   // template (lib/contact-email.ts explains why). Returns false when it is not
   // configured, which is a fall-through, not a failure.
-  if (await sendViaResend(msg, whenLabel())) return true;
+  if (await sendViaResend(msg, whenLabel(), verified)) return true;
 
   const key = process.env.NEXT_PUBLIC_WEB3FORMS_KEY;
   if (!key) return false;
@@ -205,7 +247,11 @@ export async function submitContact(input: unknown): Promise<ContactResult> {
   const h = await headers();
   const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
 
-  if (!(await verifyTurnstile(turnstileToken, ip))) {
+  const turnstile = await verifyTurnstile(turnstileToken, ip);
+
+  // Only an actively refused token is blocked. See the comment on
+  // TurnstileResult for why 'unverified' is delivered instead of rejected.
+  if (turnstile === 'rejected') {
     return {
       ok: false,
       reason: 'captcha',
@@ -219,7 +265,9 @@ export async function submitContact(input: unknown): Promise<ContactResult> {
   // allSettled, not all: a rejected email must not discard the database row.
   const [dbResult, mailResult] = await Promise.allSettled([
     supabase.from('messages').insert({ name, email, body }),
-    sendEmailNotification({ name, email, body }),
+    // `verified` decides whether the email carries the "not verified" flag, so
+    // he can tell at a glance which enquiries skipped the spam check.
+    sendEmailNotification({ name, email, body }, turnstile === 'verified'),
   ]);
 
   const dbOk =
