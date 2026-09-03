@@ -62,24 +62,65 @@ export default function ScanBanner({
 
       const line = lineRef.current;
       if (line) {
+        // TRAVEL AND FADE ARE SEPARATE TWEENS, and that matters.
+        //
+        // Originally both were one fromTo, so opacity ramped 0 -> 1 across the
+        // whole 1.5s crossing. Measured on the running page: the line was at
+        // opacity 0.19 a third of the way over, 0.53 at the midpoint, and only
+        // reached 0.99 as it left the frame -- brightest exactly where nobody
+        // was looking, then cut to nothing. It read as a dim smudge.
+        //
+        // Now: a fast fade in, full brightness for the crossing, a fade out as
+        // it exits. The travel below owns position only.
+        //
+        // EVERY TWEEN IS POSITIONED AGAINST THE 'sweep' LABEL, not against the
+        // previous tween. The first attempt used '>-0.5' for the fade-out,
+        // which GSAP resolves against the tween immediately before it -- the
+        // 0.3s fade-IN -- not against the 1.5s travel. The two opacity tweens
+        // then overlapped, the fade-in finished last and won, and the line was
+        // left parked off-screen at full opacity. Measured: endsInvisible = 1.
+        // An absolute label removes the ambiguity entirely.
+        tl.addLabel(
+          'sweep',
+          // Was '-=0.35', which started the sweep while the banner was still
+          // rising and scaling. Two things moving at once read as one blurred
+          // event. '-=0.1' lets the banner arrive first, then the light crosses
+          // it -- the same two beats, in an order the eye can follow.
+          '-=0.1',
+        );
+
         tl.fromTo(
           line,
-          { xPercent: -100, opacity: 0 },
+          { xPercent: -110, opacity: 0 },
           {
-            xPercent: 110,
-            opacity: 1,
-            duration: 0.8,
-            ease: 'power2.inOut',
-            // Fades itself out at the end of its own travel so the banner is
-            // left clean, with no element parked off to the right holding a
-            // compositor layer. `line` is captured, not re-read from the ref:
-            // by the time this fires the component may have unmounted, and
-            // gsap.set(null) is a warning nobody would ever see.
-            onComplete: () => gsap.set(line, { opacity: 0 }),
+            // 330, not 110 -- and the difference is arithmetic, not taste.
+            //
+            // xPercent is a percentage of THE ELEMENT'S OWN width, and this line
+            // is one third of the banner. So the old value moved it
+            // 1.10 x (W/3) = 0.367W, putting its trailing edge at just 0.70W:
+            // the sweep died about two thirds across and never reached the
+            // right side at all.
+            //
+            // To cross a container three times its own width and exit, it has
+            // to travel 330% of itself. -110 -> 330 enters fully off the left
+            // edge and leaves fully off the right.
+            xPercent: 330,
+            // 1.5s, not 0.8. Covering three times the distance in the old
+            // duration would have made it nearly five times faster -- a flash,
+            // not a sweep. This is the speed at which the eye can follow it.
+            duration: 1.5,
+            // power2.inOut spends most of its time at high speed in the middle,
+            // which is exactly where a long travel should be readable.
+            // power1.inOut holds a steadier pace across the whole width.
+            ease: 'power1.inOut',
           },
-          // Starts as the banner is settling, not after it has stopped.
-          '-=0.35',
-        );
+          'sweep',
+        )
+          // Up to full brightness in the first fifth of the crossing.
+          .to(line, { opacity: 1, duration: 0.3, ease: 'power1.out' }, 'sweep')
+          // ...and back down over the final half second, so it leaves rather
+          // than being switched off, and nothing is parked visible off-screen.
+          .to(line, { opacity: 0, duration: 0.5, ease: 'power1.in' }, 'sweep+=1.0');
       }
     },
     { scope: ref },
