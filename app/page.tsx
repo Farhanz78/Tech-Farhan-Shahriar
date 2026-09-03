@@ -12,6 +12,7 @@ import { SiteHeader, SiteFooter, SectionHead } from '@/components/SiteChrome';
 // stranded at opacity 0.
 import HeroIntro from '@/components/anim/HeroIntro';
 import HackerName from '@/components/anim/HackerName';
+import CarouselCaptions from '@/components/anim/CarouselCaptions';
 import HeroCanvasParallax from '@/components/anim/HeroCanvasParallax';
 import Reveal from '@/components/anim/Reveal';
 import ParallaxGrid from '@/components/anim/ParallaxGrid';
@@ -179,7 +180,12 @@ export default async function Home() {
           // own transforms and timers and is not modified, imported into an
           // animation, or reached into anywhere in this change.
           <ParallaxWrap className="mx-auto mb-14 max-w-xl" distance={-20}>
-            <PhotoCarousel photos={gallery} alt={p.name} />
+            {/* CarouselCaptions wraps the carousel from the OUTSIDE and reads
+                the aria attributes it already publishes. PhotoCarousel itself
+                is not imported into it, not modified, and not touched. */}
+            <CarouselCaptions>
+              <PhotoCarousel photos={gallery} alt={p.name} />
+            </CarouselCaptions>
           </ParallaxWrap>
         )}
 
