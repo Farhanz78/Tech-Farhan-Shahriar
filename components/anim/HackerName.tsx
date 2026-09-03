@@ -234,6 +234,21 @@ export default function HackerName({
             // of noise rather than sliding in from one side.
             x: Math.random() * w,
             y: Math.random() * h,
+            // DO NOT RAISE THIS TO SPEED UP THE ASSEMBLY.
+            //
+            // `ease` is also a low-pass filter on the coherent flow applied in
+            // the render loop. At this value the particles LAG the wave and
+            // express only part of its amplitude, which is what keeps the
+            // letterforms crisp while the name still undulates.
+            //
+            // Raising it to 0.085-0.155 to make the name gather faster let
+            // nearly the full flow through -- peaks of about 4px, wider than a
+            // letter stroke -- and the headline collapsed into an unreadable
+            // cloud. Verified by looking at it.
+            //
+            // If the assembly ever genuinely needs to be faster, the flow
+            // amplitudes in the render loop have to come down by roughly the
+            // same factor in the same change.
             ease: 0.045 + Math.random() * 0.05,
             phase: Math.random() * Math.PI * 2,
             // Idle wander stays well under one stroke width. At 1.9px the
@@ -526,7 +541,12 @@ export default function HackerName({
       <span
         ref={textRef}
         aria-hidden
-        className="relative inline-block transition-colors duration-500"
+        // 300ms, not 500. The particles are already flying in when this starts,
+        // so a long fade leaves the plain heading and a half-formed cloud of the
+        // SAME name overlapping each other -- which is what made the handover
+        // look like a glitch rather than an effect. A shorter cross-fade hands
+        // over cleanly.
+        className="relative inline-block transition-colors duration-300"
         style={live ? { color: 'transparent' } : undefined}
       >
         {name}

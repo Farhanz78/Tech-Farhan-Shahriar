@@ -282,6 +282,16 @@ export default function Hero3D() {
         renderer.setSize(width, height);
         const dpr = Math.min(window.devicePixelRatio, light ? 1.5 : 2);
         renderer.setPixelRatio(dpr);
+
+        // The scene cannot appear before three.js has downloaded and parsed --
+        // measured on the live site, that chunk lands at ~1.9s and the first
+        // frame drew at ~2.35s. Nothing here can make that instant. What it can
+        // do is stop the scene POPPING into a page that was already on screen:
+        // it starts transparent and fades up over its first frames, so the hero
+        // assembles instead of snapping.
+        renderer.domElement.style.opacity = '0';
+        renderer.domElement.style.transition = 'opacity 900ms ease-out';
+
         mount.appendChild(renderer.domElement);
 
         // Everything hangs off this so the whole scene can be offset to the
@@ -513,10 +523,21 @@ export default function Hero3D() {
           render();
         };
 
+        // Reveal only once a real frame exists, so the fade never uncovers an
+        // empty canvas. requestAnimationFrame guarantees the browser has
+        // painted the frame we just drew before the opacity transition starts.
+        const reveal = () => {
+          requestAnimationFrame(() => {
+            renderer.domElement.style.opacity = '1';
+          });
+        };
+
         if (still) {
           render();
+          reveal();
         } else {
           tick();
+          reveal();
         }
 
         cleanup = () => {
