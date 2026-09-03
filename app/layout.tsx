@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono, Archivo } from 'next/font/google';
+import { headers } from 'next/headers';
 import { preconnect } from 'react-dom';
 import GSAPInit from '@/components/GSAPInit';
 import './globals.css';
@@ -94,11 +95,41 @@ export const viewport: Viewport = {
   colorScheme: 'dark',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /*
+   * THIS headers() CALL IS LOAD-BEARING. DO NOT REMOVE IT AS AN OPTIMISATION.
+   *
+   * It forces every route under this layout to be rendered per request, and
+   * that is exactly what the CSP nonce requires.
+   *
+   * What happened without it: proxy.ts mints a fresh nonce for every request
+   * and puts it in the Content-Security-Policy header. Next.js stamps that
+   * nonce onto its <script> tags AT RENDER TIME. A statically prerendered page
+   * is rendered at BUILD time, when no request and no nonce exist -- so its
+   * scripts carry no matching nonce, and at runtime the browser blocks every
+   * one of them against a policy that also says 'strict-dynamic' (which
+   * disables the 'self' fallback).
+   *
+   * The result was /admin serving its HTML, blocking all fourteen of its
+   * script chunks plus every inline bootstrap script, and spinning on its
+   * loading indicator forever. /_not-found was in the same state. The pages
+   * that already had `export const dynamic = 'force-dynamic'` -- /, /work,
+   * /play/[id] -- were fine, which is precisely why the bug hid: the two
+   * broken routes were the only statically rendered ones.
+   *
+   * An earlier version of this file argued that reading the nonce here bought
+   * nothing because no component uses the value. That was wrong. The value is
+   * not the point; the dynamic rendering it forces is.
+   *
+   * Cost: no static prerendering. On this site that is two routes, both of
+   * which read from Supabase anyway.
+   */
+  await headers();
+
   // Resolves DNS + TLS to the asset CDN during render instead of after the game
   // iframe mounts, which measurably shortens first play. Uses React 19's
   // resource API rather than a raw <head> element, which the App Router owns
@@ -132,16 +163,15 @@ export default function RootLayout({
 }
 
 /*
- * A NOTE ON THE CSP NONCE, because its absence from this file is deliberate.
+ * WHY THE NONCE IS NEVER READ INTO A VARIABLE HERE
  *
- * proxy.ts generates a nonce per request and sets it on BOTH the request
- * and the response Content-Security-Policy header, plus an `x-nonce` request
- * header. Next.js reads the nonce out of the request's CSP header itself and
- * stamps it onto every script tag it renders. Nothing in this layout renders an
- * inline <script>, so there is nothing here that needs the value.
+ * proxy.ts sets the per-request nonce on both the request and the response
+ * Content-Security-Policy header. Next.js finds it on the REQUEST header by
+ * itself and stamps it onto every script tag it emits -- no component has to
+ * pass it anywhere. So `await headers()` above is called for its side effect
+ * (forcing dynamic rendering, see the comment there), not for its return value.
  *
- * Calling headers() to read `x-nonce` anyway would opt the ENTIRE app out of
- * static rendering -- every route under this layout, permanently -- in exchange
- * for a variable nothing would use. If a future change does add an inline
- * script, read it then, in that component, not here.
+ * If a future change adds a hand-written inline <script>, read `x-nonce` in
+ * that component and put it on the tag. Everything Next.js emits is already
+ * handled.
  */
