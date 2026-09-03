@@ -61,7 +61,7 @@ export default async function WorkPage() {
         <WorkGrid projects={projects} />
       </section>
 
-      <SiteFooter name={p.name} />
+      <SiteFooter name={p.name} current="work" />
     </div>
   );
 }

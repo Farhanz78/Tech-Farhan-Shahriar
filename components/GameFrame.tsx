@@ -124,7 +124,7 @@ export default function GameFrame({ id, src, title, thumbnail }: GameFrameProps)
                     Try again
                   </button>
                   <Link
-                    href="/#games"
+                    href="/work"
                     className="px-5 py-2.5 rounded-xl border border-hairline text-text hover:border-lime/40 transition-colors"
                   >
                     Back to games
@@ -138,7 +138,7 @@ export default function GameFrame({ id, src, title, thumbnail }: GameFrameProps)
 
       <div className="absolute top-0 inset-x-0 flex items-center justify-between p-3 opacity-30 hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <Link
-          href="/#games"
+          href="/work"
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ink/80 backdrop-blur-sm border border-hairline text-sm text-text hover:border-lime/40 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" aria-hidden />

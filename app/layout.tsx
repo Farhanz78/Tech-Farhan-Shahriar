@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Archivo } from 'next/font/google';
 import { headers } from 'next/headers';
 import { preconnect } from 'react-dom';
 import GSAPInit from '@/components/GSAPInit';
+import ScrollReset from '@/components/ScrollReset';
 import './globals.css';
 
 const geistSans = Geist({
@@ -147,6 +148,10 @@ export default async function RootLayout({
             page, so a client navigation cannot land on a section whose
             ScrollTrigger has no plugin registered yet. */}
         <GSAPInit />
+
+        {/* Starts a reload at the top instead of wherever the reader last was.
+            Renders nothing; a URL with a #section still goes to that section. */}
+        <ScrollReset />
 
         {children}
 

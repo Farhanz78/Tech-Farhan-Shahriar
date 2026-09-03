@@ -126,6 +126,7 @@ export default function HackerName({
     let raf = 0;
     let disposed = false;
     let startedAt = 0;
+    let onScreen = true;
 
     // Pointer, in canvas coordinates. Drives both the cloud's rotation and a
     // local push, so the name reacts to the cursor rather than just spinning.
@@ -215,7 +216,15 @@ export default function HackerName({
 
       const img = octx.getImageData(0, 0, off.width, off.height).data;
       const next: P[] = [];
-      const stepPx = Math.max(2, Math.round(STEP * dpr));
+
+      // Coarser sampling on small screens. Every sampled pixel becomes a
+      // particle drawn with its own fillRect on every frame, so the step size
+      // is effectively the frame cost: at STEP 2.2 a phone was building roughly
+      // 3,000 particles and redrawing all of them at 60fps, on top of the WebGL
+      // hero. 1.45x the step is about half the particles, and at phone type
+      // sizes the letterforms are small enough that the density is not missed.
+      const step = window.innerWidth < 768 ? STEP * 1.45 : STEP;
+      const stepPx = Math.max(2, Math.round(step * dpr));
 
       for (let py = 0; py < off.height; py += stepPx) {
         for (let px = 0; px < off.width; px += stepPx) {
@@ -297,7 +306,12 @@ export default function HackerName({
 
     function frame(now: number) {
       raf = requestAnimationFrame(frame);
-      if (document.hidden) return;
+      // `onScreen` matters as much as `document.hidden` here. Without it this
+      // loop kept redrawing every particle at 60fps for the whole visit, even
+      // with the hero scrolled far out of view -- burning CPU and battery
+      // behind every other section of the page. Hero3D already did this; the
+      // name did not.
+      if (!onScreen || document.hidden) return;
 
       const t = (now - startedAt) / 1000;
       ctx.clearRect(0, 0, w, h);
@@ -506,6 +520,14 @@ export default function HackerName({
       window.addEventListener('pointerleave', onLeave);
     }
 
+    // Stop the loop entirely once the hero has scrolled away. rootMargin gives
+    // it a little lead so it is already running again before it comes back
+    // into view.
+    const io = new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }, {
+      rootMargin: '150px',
+    });
+    io.observe(host);
+
     // Re-sample when the heading's box changes: a resize, a font swap, or the
     // name wrapping onto a second line.
     let resizeTimer = 0;
@@ -523,6 +545,7 @@ export default function HackerName({
       disposed = true;
       cancelAnimationFrame(raf);
       window.clearTimeout(resizeTimer);
+      io.disconnect();
       ro.disconnect();
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerleave', onLeave);

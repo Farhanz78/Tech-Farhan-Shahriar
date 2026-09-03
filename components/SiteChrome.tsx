@@ -41,7 +41,19 @@ export function SiteHeader({ name }: { name: string }) {
   );
 }
 
-export function SiteFooter({ name }: { name: string }) {
+/**
+ * `current` decides which way the first footer link points. On /work a link
+ * labelled "Work" pointed at the page the reader was already standing on --
+ * dead weight in the one place a reader looks when they have reached the end
+ * and want somewhere to go. It now offers Home instead.
+ */
+export function SiteFooter({
+  name,
+  current = 'home',
+}: {
+  name: string;
+  current?: 'home' | 'work';
+}) {
   return (
     <footer className="mt-8 border-t border-hairline">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-subtle sm:flex-row">
@@ -49,9 +61,15 @@ export function SiteFooter({ name }: { name: string }) {
           © {new Date().getFullYear()} {name}
         </p>
         <div className="flex gap-5">
-          <Link href="/work" className="transition-colors hover:text-text">
-            Work
-          </Link>
+          {current === 'work' ? (
+            <Link href="/" className="transition-colors hover:text-text">
+              Home
+            </Link>
+          ) : (
+            <Link href="/work" className="transition-colors hover:text-text">
+              Work
+            </Link>
+          )}
           <Link href="/#contact" className="transition-colors hover:text-text">
             Contact
           </Link>

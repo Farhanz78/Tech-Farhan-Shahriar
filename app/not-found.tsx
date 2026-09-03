@@ -13,7 +13,7 @@ export default function NotFound() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3 justify-center">
           <Link
-            href="/#games"
+            href="/work"
             className="px-5 py-2.5 rounded-xl bg-lime text-ink font-semibold hover:bg-lime-dim transition-colors"
           >
             Browse games
