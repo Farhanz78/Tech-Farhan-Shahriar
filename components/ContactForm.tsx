@@ -1,105 +1,91 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Send, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { supabase } from '@/utils/supabase/client';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
+import { submitContact } from '@/app/actions/contact';
 
 type State = 'idle' | 'sending' | 'sent' | 'error';
 
 /**
- * Emails the message via Web3Forms.
+ * The public contact form.
  *
- * Returns false (rather than throwing) when no key is configured, so the form
- * still works on a fresh deploy and simply relies on the database inbox until
- * NEXT_PUBLIC_WEB3FORMS_KEY is set in Vercel.
+ * WHAT CHANGED AND WHY
+ * The submit path used to run entirely in the browser: a supabase.insert() and
+ * a fetch to Web3Forms, side by side. It now posts to the `submitContact`
+ * Server Action instead. The reason is Cloudflare Turnstile -- a captcha token
+ * is worth nothing unless it is verified somewhere the visitor cannot edit, and
+ * the secret key that verifies it must never reach the browser.
  *
- * The access key is deliberately a NEXT_PUBLIC_ value: Web3Forms designs it to
- * be used from the browser. It is an alias for the destination address, not a
- * secret -- it cannot read anything, only submit to the owner's own inbox.
+ * The two-delivery behaviour (database + email, neither able to lose the
+ * message if the other fails) moved into the action unchanged.
+ *
+ * TURNSTILE IS OPTIONAL, AND ABSENCE IS THE NORMAL CASE FOR NOW.
+ * The widget renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. Until the
+ * owner finishes the Cloudflare setup the form behaves exactly as before,
+ * protected by the honeypot and by server-side validation. Nothing in this file
+ * needs editing when the key arrives -- setting it in Vercel is the whole
+ * change.
  */
-async function sendEmailNotification(msg: {
-  name: string;
-  email: string;
-  body: string;
-}): Promise<boolean> {
-  const key = process.env.NEXT_PUBLIC_WEB3FORMS_KEY;
-  if (!key) return false;
 
-  const res = await fetch('https://api.web3forms.com/submit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      access_key: key,
-      subject: `New enquiry from ${msg.name}`,
-      from_name: 'Portfolio contact form',
-      // `replyTo` makes hitting Reply in the inbox answer the visitor directly.
-      replyto: msg.email,
-      name: msg.name,
-      email: msg.email,
-      message: msg.body,
-    }),
-  });
-
-  return res.ok;
-}
+// Read at module scope: NEXT_PUBLIC_ values are inlined at build time, so this
+// is a constant in the bundle rather than a lookup on every render.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 export default function ContactForm({ fallbackEmail }: { fallbackEmail: string }) {
   const [state, setState] = useState<State>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
   const [form, setForm] = useState({ name: '', email: '', body: '' });
-  // Honeypot: invisible to people, irresistible to bots. No CAPTCHA, no
-  // third-party script, and a filled value is silently discarded.
+
+  // Honeypot: invisible to people, irresistible to bots. It stays in the markup
+  // rather than being server-only, because its whole job is to be in the DOM.
   const [company, setCompany] = useState('');
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+
+  const set =
+    (k: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setState('sending');
+    setErrorMessage('');
 
-    if (company) {
-      // Bot. Report success so it does not retry, but write nothing.
-      setState('sent');
-      return;
-    }
+    try {
+      const result = await submitContact({
+        name: form.name,
+        email: form.email,
+        body: form.body,
+        company,
+        turnstileToken: turnstileToken || undefined,
+      });
 
-    const name = form.name.trim();
-    const email = form.email.trim();
-    const body = form.body.trim();
+      if (result.ok) {
+        setState('sent');
+        setForm({ name: '', email: '', body: '' });
+        return;
+      }
 
-    // Two independent deliveries, so one failing never loses the message:
-    //  1. the database, which is the durable record and the admin inbox
-    //  2. an email, so it actually reaches an inbox without checking /admin
-    // Promise.allSettled, not all: a rejected email must not discard the row.
-    const [dbResult, mailResult] = await Promise.allSettled([
-      supabase.from('messages').insert({ name, email, body }),
-      sendEmailNotification({ name, email, body }),
-    ]);
-
-    const dbOk =
-      dbResult.status === 'fulfilled' && !(dbResult.value as { error?: unknown }).error;
-    const mailOk = mailResult.status === 'fulfilled' && mailResult.value === true;
-
-    if (!dbOk) {
-      const reason =
-        dbResult.status === 'fulfilled'
-          ? (dbResult.value as { error?: { message?: string } }).error?.message
-          : String(dbResult.reason);
-      console.error('[contact] database insert failed:', reason);
-    }
-    if (mailResult.status === 'rejected') {
-      console.error('[contact] email notification failed:', mailResult.reason);
-    }
-
-    // Only a real failure is when BOTH routes failed. Never show the raw
-    // Postgres error to a visitor -- it is meaningless to them.
-    if (!dbOk && !mailOk) {
+      // A Turnstile token is single-use. Whatever went wrong, the old token is
+      // spent, so the widget is reset before the visitor tries again --
+      // otherwise the second attempt fails for a different reason than the
+      // first and the message they are reading stops matching reality.
+      turnstileRef.current?.reset();
+      setTurnstileToken('');
+      setErrorMessage(result.message);
       setState('error');
-      return;
+    } catch (err) {
+      // A Server Action can reject on a dropped network or a cold-start
+      // timeout. The visitor gets one sentence; the detail stays in the console.
+      console.error('[contact] submit failed:', err);
+      turnstileRef.current?.reset();
+      setTurnstileToken('');
+      setErrorMessage('That did not go through.');
+      setState('error');
     }
-
-    setState('sent');
-    setForm({ name: '', email: '', body: '' });
   }
 
   if (state === 'sent') {
@@ -166,6 +152,20 @@ export default function ContactForm({ fallbackEmail }: { fallbackEmail: string }
         aria-label="Your message"
       />
 
+      {TURNSTILE_SITE_KEY && (
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={TURNSTILE_SITE_KEY}
+          onSuccess={setTurnstileToken}
+          // An expired token is worse than no token: the visitor sees a widget
+          // that says it passed while the server rejects it. Clearing the state
+          // keeps the failure honest and makes the reset above meaningful.
+          onExpire={() => setTurnstileToken('')}
+          onError={() => setTurnstileToken('')}
+          options={{ theme: 'dark', size: 'flexible' }}
+        />
+      )}
+
       {state === 'error' && (
         <p
           role="alert"
@@ -173,7 +173,8 @@ export default function ContactForm({ fallbackEmail }: { fallbackEmail: string }
         >
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
           <span>
-            That didn&apos;t go through. Please try again, or email me directly at{' '}
+            {errorMessage || 'That didn’t go through.'} Please try again, or email me
+            directly at{' '}
             <a href={`mailto:${fallbackEmail}`} className="underline underline-offset-2">
               {fallbackEmail}
             </a>

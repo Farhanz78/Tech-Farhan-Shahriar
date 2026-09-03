@@ -1,9 +1,20 @@
 import Link from 'next/link';
+import HeaderShell from '@/components/anim/HeaderShell';
 
+/**
+ * The header's markup stays here, in a Server Component. Only the <header>
+ * element itself becomes a client component (HeaderShell), because only the
+ * element needs a ref -- for the entrance tween and for the compact-on-scroll
+ * class.
+ *
+ * `site-header` owns the height, which shrinks once `is-scrolled` is added.
+ * Both rules live in globals.css under "Sticky header". The nav is `h-full`
+ * rather than a fixed `h-16` so its contents follow the header as it compacts.
+ */
 export function SiteHeader({ name }: { name: string }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-hairline bg-ink/80 backdrop-blur-md">
-      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+    <HeaderShell className="site-header sticky top-0 z-50 border-b border-hairline bg-ink/80 backdrop-blur-md">
+      <nav className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
         <Link href="/" className="font-semibold tracking-tight">
           {name.split(' ')[0]}
           <span className="text-lime">.</span>
@@ -26,7 +37,7 @@ export function SiteHeader({ name }: { name: string }) {
           </Link>
         </div>
       </nav>
-    </header>
+    </HeaderShell>
   );
 }
 

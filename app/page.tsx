@@ -5,6 +5,18 @@ import ContactForm from '@/components/ContactForm';
 import PhotoCarousel from '@/components/PhotoCarousel';
 import Magnetic from '@/components/Magnetic';
 import { SiteHeader, SiteFooter, SectionHead } from '@/components/SiteChrome';
+// Animation shells. Each is a thin 'use client' wrapper, so this page stays an
+// async Server Component and keeps fetching the profile and the project count
+// on the server. They all follow the rules in hooks/useScrollReveal.ts --
+// chiefly that a skipped or failed animation leaves content visible, never
+// stranded at opacity 0.
+import HeroIntro from '@/components/anim/HeroIntro';
+import HeroCanvasParallax from '@/components/anim/HeroCanvasParallax';
+import Reveal from '@/components/anim/Reveal';
+import ParallaxGrid from '@/components/anim/ParallaxGrid';
+import ParallaxWrap from '@/components/anim/ParallaxWrap';
+import ClipReveal from '@/components/anim/ClipReveal';
+import ScanBanner from '@/components/anim/ScanBanner';
 import { getProfile, resolveProfile, formatPhone } from '@/lib/profile';
 import { supabase } from '@/utils/supabase/client';
 
@@ -35,28 +47,48 @@ export default async function Home() {
 
       {/* ------------------------------------------------------------- hero */}
       <section className="relative overflow-hidden">
-        <HeroCanvas />
+        {/* The 3D ball shrinks, fades and drifts to the top-right as the reader
+            scrolls toward Services. The wrapper is what animates -- Hero3D.tsx
+            and HeroCanvas.tsx are not touched, so the WebGL context, its
+            capability gating and its teardown all stay where they are. */}
+        <HeroCanvasParallax>
+          <HeroCanvas />
+        </HeroCanvasParallax>
 
         <div className="relative mx-auto max-w-6xl px-6 py-24 md:py-36">
-          <div className="max-w-3xl animate-rise">
+          {/* Was `animate-rise`, which lifted the whole block as one object.
+              GSAP now walks the eye down it part by part; children opt in with
+              data-hero. See components/anim/HeroIntro.tsx. */}
+          <HeroIntro className="max-w-3xl">
             {/* No portrait here on purpose — the photos live in the stacked
                 carousel above the About section instead. */}
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface/70 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.12em] text-lime backdrop-blur-sm">
+            <p
+              data-hero="pill"
+              className="mb-4 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface/70 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.12em] text-lime backdrop-blur-sm"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-lime" />
               Available for new projects
             </p>
 
-            <h1 className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight md:text-7xl">
+            <h1
+              data-hero="h1"
+              className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight md:text-7xl"
+            >
               {p.name}
             </h1>
 
-            <p className="mt-4 font-display text-2xl font-bold text-lime md:text-3xl">
+            <p
+              data-hero="tagline"
+              className="mt-4 font-display text-2xl font-bold text-lime md:text-3xl"
+            >
               {p.tagline}
             </p>
 
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted">{p.bio}</p>
+            <p data-hero="bio" className="mt-6 max-w-2xl text-lg leading-relaxed text-muted">
+              {p.bio}
+            </p>
 
-            <div className="mt-9 flex flex-wrap items-center gap-3">
+            <div data-hero="buttons" className="mt-9 flex flex-wrap items-center gap-3">
               <Magnetic>
                 <Link
                   href="/work"
@@ -84,18 +116,32 @@ export default async function Home() {
               <Stat value="4" label="Platforms covered" />
               <Stat value="End to end" label="Design to deployment" />
             </dl>
-          </div>
+          </HeroIntro>
         </div>
       </section>
 
       {/* --------------------------------------------------------- services */}
-      <section id="services" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-        <SectionHead
-          eyebrow="What I do"
-          title="Hire me for"
-          sub="Four things I build well, and what you actually receive at the end of each."
-        />
-        <div className="grid gap-5 sm:grid-cols-2">
+      {/* `isolate` matters: it gives this section its own stacking context, so
+          the grid's -z-10 is clamped to this section instead of sinking behind
+          the page's bg-ink wrapper, where it would be invisible. */}
+      <section
+        id="services"
+        className="relative isolate mx-auto max-w-6xl px-6 py-20 md:py-28"
+      >
+        {/* Faint lime grid drifting at 0.6x scroll speed, behind the cards.
+            Decorative, aria-hidden, and it cannot intercept a click. */}
+        <ParallaxGrid />
+
+        {/* The heading arrives first, then the cards follow it in. */}
+        <Reveal y={30}>
+          <SectionHead
+            eyebrow="What I do"
+            title="Hire me for"
+            sub="Four things I build well, and what you actually receive at the end of each."
+          />
+        </Reveal>
+
+        <Reveal targets="[data-svc]" y={60} stagger={0.12} className="grid gap-5 sm:grid-cols-2">
           <Service
             icon={<icons.Globe className="h-5 w-5" />}
             title="Web development"
@@ -120,19 +166,22 @@ export default async function Home() {
             promise="Small focused software that removes a repetitive job."
             points={['Dashboards and calculators', 'Data processing scripts', 'Internal tools', 'Documented so you can run it']}
           />
-        </div>
+        </Reveal>
       </section>
 
       {/* ------------------------------------------------------------ about */}
       <section id="about" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
         {gallery.length > 0 && (
-          <div className="mx-auto mb-14 max-w-xl">
+          // ParallaxWrap animates ONLY this wrapper div. PhotoCarousel owns its
+          // own transforms and timers and is not modified, imported into an
+          // animation, or reached into anywhere in this change.
+          <ParallaxWrap className="mx-auto mb-14 max-w-xl" distance={-20}>
             <PhotoCarousel photos={gallery} alt={p.name} />
-          </div>
+          </ParallaxWrap>
         )}
 
         <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
-          <div>
+          <Reveal x={40} y={0}>
             <SectionHead eyebrow="About" title={`Who you'd be working with`} />
             <div className="max-w-2xl space-y-4 text-muted">
               <p className="leading-relaxed">{p.bio}</p>
@@ -154,23 +203,33 @@ export default async function Home() {
                 {p.location}
               </p>
             )}
-          </div>
+          </Reveal>
 
           <div className="lg:pt-[4.5rem]">
             <div className="rounded-2xl border border-hairline bg-surface p-6">
               <p className="mb-4 text-xs uppercase tracking-[0.12em] text-subtle">
                 Areas of Expertise
               </p>
-              <div className="flex flex-wrap gap-2">
+              {/* Tags stagger up from the bottom, 0.05s apart. The stagger is
+                  short on purpose: this can be a long list, and 0.15s each
+                  would still be animating after the reader has moved on. */}
+              <Reveal
+                targets="[data-skill]"
+                y={15}
+                stagger={0.05}
+                duration={0.5}
+                className="flex flex-wrap gap-2"
+              >
                 {p.skills.map((s) => (
                   <span
                     key={s}
+                    data-skill
                     className="rounded-lg border border-hairline bg-surface-2 px-3 py-1.5 text-sm text-muted"
                   >
                     {s}
                   </span>
                 ))}
-              </div>
+              </Reveal>
             </div>
           </div>
         </div>
@@ -178,7 +237,10 @@ export default async function Home() {
 
       {/* ---------------------------------------------------------- process */}
       <section className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-        <div className="rounded-3xl border border-hairline bg-surface/50 p-8 md:p-12">
+        {/* The panel wipes upward with clip-path, then the four steps stagger
+            in. Clipping does not reflow, so the Work CTA underneath does not
+            move while this plays. */}
+        <ClipReveal className="rounded-3xl border border-hairline bg-surface/50 p-8 md:p-12">
           <SectionHead
             eyebrow="How it works"
             title="Simple, in four steps"
@@ -190,43 +252,58 @@ export default async function Home() {
             <Step n="03" title="I build it" body="You see working progress along the way, not just at the end." />
             <Step n="04" title="You get everything" body="The build, the source code, and what you need to run it yourself." />
           </ol>
-        </div>
+        </ClipReveal>
       </section>
 
       {/* -------------------------------------------------------- work CTA */}
       <section className="mx-auto max-w-6xl px-6 py-8">
-        <Link
-          href="/work"
-          className="group flex flex-col items-start justify-between gap-6 rounded-3xl border border-hairline bg-gradient-to-br from-surface to-ink p-8 transition-colors hover:border-lime/40 md:flex-row md:items-center md:p-12"
-        >
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-lime">
-              Portfolio
-            </p>
-            <h2 className="font-display text-3xl font-extrabold tracking-tight md:text-4xl">
-              See what I&apos;ve built
-            </h2>
-            <p className="mt-3 max-w-xl text-muted">
-              {projectCount} projects across games, web, mobile and tools — most of them
-              playable right in your browser.
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-2 rounded-xl bg-lime px-6 py-3.5 font-semibold text-ink transition-transform group-hover:translate-x-1">
-            Browse the work
-            <icons.ArrowRight className="h-4 w-4" aria-hidden />
-          </span>
-        </Link>
+        {/* Rises and stretches into place, then one lime scan line sweeps
+            across. Once, on entry -- a looping sweep on a call to action pulls
+            the eye back every few seconds while the reader is trying to read
+            the rest of the page. */}
+        <ScanBanner>
+          <Link
+            href="/work"
+            className="group flex flex-col items-start justify-between gap-6 rounded-3xl border border-hairline bg-gradient-to-br from-surface to-ink p-8 transition-colors hover:border-lime/40 md:flex-row md:items-center md:p-12"
+          >
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-lime">
+                Portfolio
+              </p>
+              <h2 className="font-display text-3xl font-extrabold tracking-tight md:text-4xl">
+                See what I&apos;ve built
+              </h2>
+              <p className="mt-3 max-w-xl text-muted">
+                {projectCount} projects across games, web, mobile and tools — most of them
+                playable right in your browser.
+              </p>
+            </div>
+            {/* "Browse the work" wrapped onto two lines once the banner went
+                to a row layout, which put a ragged two-line button next to a
+                one-line heading. Shorter label, and whitespace-nowrap so no
+                future copy edit can wrap it again; shrink-0 stops the flex row
+                squeezing it before the text block. */}
+            <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-lime px-6 py-3.5 font-semibold text-ink transition-transform group-hover:translate-x-1">
+              Browse work
+              <icons.ArrowRight className="h-4 w-4" aria-hidden />
+            </span>
+          </Link>
+        </ScanBanner>
       </section>
 
       {/* --------------------------------------------------------- contact */}
       <section id="contact" className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-        <SectionHead
-          eyebrow="Get in touch"
-          title="Let's build something"
-          sub="Tell me what you have in mind and I'll reply with a plan, a price and a timeline."
-        />
+        <Reveal y={30}>
+          <SectionHead
+            eyebrow="Get in touch"
+            title="Let's build something"
+            sub="Tell me what you have in mind and I'll reply with a plan, a price and a timeline."
+          />
+        </Reveal>
         <div className="grid gap-10 lg:grid-cols-[1fr_1.15fr]">
-          <div className="space-y-3">
+          {/* Rows come in from the left, the form from the right, so the two
+              halves meet in the middle rather than both sliding the same way. */}
+          <Reveal targets="[data-crow]" x={-30} y={0} stagger={0.15} className="space-y-3">
             <ContactRow
               icon={<icons.Mail className="h-4 w-4" />}
               label="Email"
@@ -248,8 +325,10 @@ export default async function Home() {
                 external
               />
             )}
-          </div>
-          <ContactForm fallbackEmail={p.email} />
+          </Reveal>
+          <Reveal x={30} y={0} duration={0.7}>
+            <ContactForm fallbackEmail={p.email} />
+          </Reveal>
         </div>
       </section>
 
@@ -260,7 +339,9 @@ export default async function Home() {
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div>
+    // data-hero="stat" is how HeroIntro finds these to stagger them; the three
+    // stats are the only part of the hero that animates as a group.
+    <div data-hero="stat">
       <dt className="font-display text-2xl font-extrabold text-text">{value}</dt>
       <dd className="mt-0.5 text-sm text-subtle">{label}</dd>
     </div>
@@ -279,7 +360,11 @@ function Service({
   points: string[];
 }) {
   return (
-    <div className="group/svc relative overflow-hidden rounded-2xl border border-hairline bg-surface p-6 transition-[border-color,transform,box-shadow] duration-300 hover:-translate-y-1 hover:border-lime/40 hover:shadow-[0_20px_44px_-22px_rgba(0,0,0,0.95)] motion-reduce:hover:translate-y-0">
+    // data-svc is the stagger hook for the Reveal wrapper around the grid.
+    <div
+      data-svc
+      className="group/svc relative overflow-hidden rounded-2xl border border-hairline bg-surface p-6 transition-[border-color,transform,box-shadow] duration-300 hover:-translate-y-1 hover:border-lime/40 hover:shadow-[0_20px_44px_-22px_rgba(0,0,0,0.95)] motion-reduce:hover:translate-y-0"
+    >
       {/* Light sweep that follows the card on hover. Purely decorative. */}
       <span
         aria-hidden
@@ -310,7 +395,8 @@ function Service({
 
 function Step({ n, title, body }: { n: string; title: string; body: string }) {
   return (
-    <li>
+    // data-step is what ClipReveal staggers once the panel has wiped open.
+    <li data-step>
       <p className="font-display text-sm font-bold text-lime">{n}</p>
       <h3 className="mt-2 font-semibold">{title}</h3>
       <p className="mt-1.5 text-sm leading-relaxed text-muted">{body}</p>
@@ -334,6 +420,7 @@ function ContactRow({
   return (
     <a
       href={href}
+      data-crow
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className="group flex items-center gap-4 rounded-xl border border-hairline bg-surface p-4 transition-colors hover:border-lime/40"
     >

@@ -48,17 +48,27 @@ have. Nothing here requires touching code.
 | Work hosted elsewhere | **Link only** | Play Store apps, client sites, games on another portal. Nothing is uploaded. |
 
 His existing builds live in `C:\Users\nisa8\OneDrive\Desktop\Claude Games\`.
-Measured, upload-ready, no blockers:
 
-| Game | Folder to upload | Files | Size |
-| :--- | :--- | ---: | ---: |
-| Canopy Chase | `Temple Dash/crazygames` | 94 | 31.7 MB |
-| Berm Rush | `MX Offroad Master/main source code` | 138 | 13.8 MB |
-| Blackhole Crash | `Blackhole Crash/crazygames` | 7 | 1.9 MB |
+> **Superseded 2026-09-03.** This table used to say upload `Temple Dash/
+> crazygames`, `MX Offroad Master/main source code` and `Blackhole Crash/
+> crazygames`. **Do not.** Those are the CrazyGames builds — they carry the
+> CrazyGames SDK, which is dead on this domain, and no ad network at all.
 
-Do **not** upload `Temple Dash/main source code` (178 MB) or
-`MX Offroad Master/crazygames` (84 MB) — the smaller builds above are the same
-games and fit the free-tier egress budget.
+Each game now has a `portfolio/` folder — the web build made *for this site*,
+with GameMonetize wired in. `python "Claude Games/build_portfolio_zips.py"`
+stages it into `FARHAN PORTFOLIO/` and writes the upload zip one level up.
+**Upload the zip, never the folder:**
+
+| Game | Zip to upload at `/admin` | Size |
+| :--- | :--- | ---: |
+| Canopy Chase | `Temple Dash/canopy-chase-portfolio.zip` | 12.3 MB |
+| Berm Rush | `MX Offroad Master/berm-rush-portfolio.zip` | 7.2 MB |
+| Blackhole Crash | `Blackhole Crash/blackhole-crash-portfolio.zip` | 0.2 MB |
+
+Two stale archives sit beside them from an earlier attempt —
+`canopy-chase-gamemonetize.zip` (**151 MB**, 177 MB of unoptimised assets
+inside) and `berm-rush-gamemonetize.zip`. Neither is a valid build. Uploading
+the first would put 151 MB into Supabase Storage for a game that fits in 12.3.
 
 Ready-made 16:9 cover images are at `Desktop\portfolio-covers\`.
 
@@ -155,17 +165,62 @@ portfolio it actively works against the goal.
 If ads are wanted anyway, the only defensible placement is the **hosted game
 pages** (`/play/[id]`), where a visitor is playing rather than evaluating him.
 
-Better-suited providers for a game-hosting site, in rough order:
+### Which network — researched 2026-09-03, not guessed
 
-| Provider | Fit |
-| :--- | :--- |
-| **CrazyGames / Poki SDK** | Best fit. Revenue share on games hosted with them, ad formats designed for gameplay (rewarded video, between-level interstitials). He already ships to CrazyGames. |
-| **AdinPlay / GameMonetize** | Built for HTML5 game sites specifically; low traffic bar. |
-| **Google AdSense** | Cleanest creatives and best reputation, but approval is a real bar and hosting game content can complicate review. |
-| **Adsterra** | Easiest approval and high fill, worst user experience. Last resort. |
+**Correction to an earlier version of this file:** it listed "CrazyGames / Poki
+SDK" as the best fit for this site. That is wrong and the mistake is worth
+naming. Their SDKs only serve ads **on their own domains** — CrazyGames'
+publishing rules forbid external ad networks in a game hosted with them, and
+their SDK returns nothing when the game is served from anywhere else. They are
+a distribution channel, not a monetisation option for `farhanshahriar.online`.
 
-Verify current payout terms and Bangladesh payment support before committing —
-these change, and this file may be stale.
+| Provider | Approval bar | Rewarded video | Verdict for this site |
+| :--- | :--- | :--- | :--- |
+| **GameMonetize** | None — self-serve, instant | **No real API** (see below) | What is wired in today. Fine as a starting layer. |
+| **Google H5 Games Ads** | High: an approved AdSense account **plus** a separate allowlisting review | Yes — a real `adViewed` callback | The right destination. Not available yet. |
+| **AdinPlay / Venatus** | Contact-based; built around established portals | Yes | Revisit once traffic is consistent. Solo devs are hard to onboard. |
+| **Playwire, CPMStar** | Stated traffic minimums, portal-scale | Yes | Out of reach at this traffic. |
+| **Adsterra / Monetag** | Trivial | No | Popunders and social bars. Last resort; actively harms a hire-me site. |
+
+**The GameMonetize limitation, measured not assumed.** Their live `sdk.js` was
+decoded: `showBanner()` takes no arguments, only `preroll` and `midroll` exist
+internally, and there is **no rewarded placement and no "watch complete"
+event**. Reward gating there is a proof-of-play heuristic (ad filled → ad ended
+→ ≥ 4 s elapsed), documented in `Claude Games/PLATFORM-RULES.md`. It cannot
+distinguish a skip at second 6 of a 30-second ad from a full watch.
+
+**Google's Ad Placement API can.** `adBreak({type:'reward', beforeReward,
+adViewed, adDismissed, ...})` — `adViewed` fires only on a completed view,
+`adDismissed` on a skip. That is a genuine reason to migrate, not just a CPM
+argument. Reported 2026 web rewarded eCPM is around $3.62 global / $6.98 US,
+well under mobile's $16–20; treat any number in this table as needing
+re-measurement before it drives a decision.
+
+**What blocks H5 Games Ads today**, in order:
+
+1. **An approved AdSense account.** This is the real gate — H5 access is a
+   second form on top of it. Google requires content that is "high-quality,
+   original, and attract[s] an audience", and the applicant to be 18+.
+2. **Site age.** Google names China and India as places where they require six
+   months of site ownership. Bangladesh is *not* named by Google — that claim
+   comes only from SEO blogs — but applying with a six-month-old, content-rich
+   site is the safe play regardless.
+3. **Thin content.** A three-game portfolio is exactly the shape reviewers
+   reject: near-empty pages, no original written content, duplicate cards. Real
+   descriptions, covers and a written page per game are prerequisite work, not
+   polish.
+4. **H5 formats are not on by default** even after AdSense approval — a
+   separate allowlisting review at `adsense.google.com/start/h5-games-ads/`.
+
+**The sequence to recommend:** keep GameMonetize running on `/play/[id]` now,
+because it needs no approval and pays something. In parallel fill in the site's
+written content and let the domain age. Apply for AdSense once the site has
+real pages and some traffic; apply for H5 Games Ads immediately after it is
+approved. Because both go through the same `AdSlot` layer (below) and the same
+single ad door in each game, switching is a config change, not a rewrite.
+
+Verify payout terms and Bangladesh payment support before committing to any of
+these — they change, and this file goes stale.
 
 ### If ads do get added, build it as one switchable layer
 
@@ -180,6 +235,21 @@ and it is reusable in his next project.
 Two non-negotiables: reserve the slot's height in CSS so an injected banner
 cannot shift the layout, and never render `AdSlot` on `/admin` or on the
 portfolio pages.
+
+**`AdSlot` is for page banners only.** Ads *inside* a game are a different
+system entirely: they live in the game's own bundle, behind that game's single
+ad door (`CG` in all three of his games), and the site never sees them. Do not
+try to drive an in-game rewarded ad from React — `/g/[id]` is a separate
+document served as raw HTML, and the game is inside an iframe.
+
+**The reward rule, which is absolute.** A player gets coins, a revive or a
+boost **only** when a video was actually watched. Every failure path — no fill,
+adblock, SDK missing, network dead, tab hidden, user skipped — must grant
+nothing and say why. This has already been got wrong four separate times
+across the three games; the worst case made *every* reward in Berm Rush free.
+"Grant it anyway so the player isn't stuck" is how that happens, and it is
+never the right call. If a game shows a reward button, that button must be
+capable of failing visibly.
 
 ## Working on this project
 
