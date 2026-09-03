@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono, Archivo } from 'next/font/google';
 import { preconnect } from 'react-dom';
+import GSAPInit from '@/components/GSAPInit';
 import './globals.css';
 
 const geistSans = Geist({
@@ -110,8 +111,37 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} antialiased`}
       >
+        {/* Registers the free GSAP plugins once for the whole app. Renders
+            nothing. Must be inside <body>, and must be here rather than in a
+            page, so a client navigation cannot land on a section whose
+            ScrollTrigger has no plugin registered yet. */}
+        <GSAPInit />
+
         {children}
+
+        {/* Honeypot. See app/api/canary/route.ts for what happens on a hit and
+            why nothing is logged. Hidden from sight, from the keyboard and from
+            assistive technology, so the only visitor that can reach it is one
+            following every href on the page indiscriminately. */}
+        <a href="/api/canary" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1}>
+          canary
+        </a>
       </body>
     </html>
   );
 }
+
+/*
+ * A NOTE ON THE CSP NONCE, because its absence from this file is deliberate.
+ *
+ * proxy.ts generates a nonce per request and sets it on BOTH the request
+ * and the response Content-Security-Policy header, plus an `x-nonce` request
+ * header. Next.js reads the nonce out of the request's CSP header itself and
+ * stamps it onto every script tag it renders. Nothing in this layout renders an
+ * inline <script>, so there is nothing here that needs the value.
+ *
+ * Calling headers() to read `x-nonce` anyway would opt the ENTIRE app out of
+ * static rendering -- every route under this layout, permanently -- in exchange
+ * for a variable nothing would use. If a future change does add an inline
+ * script, read it then, in that component, not here.
+ */

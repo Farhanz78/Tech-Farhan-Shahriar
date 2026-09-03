@@ -94,6 +94,16 @@ html {
   scroll-behavior: smooth;
   /* Anchored sections must clear the sticky header. */
   scroll-padding-top: 5rem;
+
+  /* Guard against sideways scroll on phones.
+     `clip`, NOT `hidden`. overflow-x:hidden on the root makes it a scroll
+     container, which silently kills `position: sticky` -- and the site header
+     is sticky. `clip` prevents the scroll without creating that container.
+     This is the safety net; the real fix is that useScrollReveal drops
+     horizontal offsets below 768px. Both, because an animation that pushes
+     content off-screen for a second is the kind of bug nobody reports, they
+     just leave. */
+  overflow-x: clip;
 }
 
 body {
@@ -113,6 +123,33 @@ body {
 ::selection {
   background: color-mix(in oklab, var(--color-lime) 30%, transparent);
   color: var(--color-text);
+}
+
+/* --------------------------------------------------------------------------
+   Sticky header.
+
+   Two states, one class. components/anim/HeaderShell.tsx adds `is-scrolled`
+   once the page has moved 80px, and the change is a CSS transition rather than
+   a GSAP tween: a tween would have to own this property for the life of the
+   page and fight the stylesheet for it, whereas a class keeps the design here
+   where it can be read and changed.
+
+   The height is the only thing that moves. Animating padding as well makes the
+   nav contents jump because the flex centring resolves at a different moment
+   than the box resize.
+
+   Not gated on prefers-reduced-motion: this is a state change, not decoration,
+   and the media query at the bottom of this file already collapses every
+   transition to 0.01ms -- so a reduced-motion visitor gets the compact header
+   instantly instead of not at all.
+   -------------------------------------------------------------------------- */
+.site-header {
+  height: 4rem; /* matches the h-16 this replaced */
+  transition: height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.site-header.is-scrolled {
+  height: 3.25rem;
 }
 
 /* Utility for cards whose cover image has not loaded yet. */
