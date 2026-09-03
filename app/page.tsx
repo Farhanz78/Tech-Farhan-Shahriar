@@ -11,6 +11,7 @@ import { SiteHeader, SiteFooter, SectionHead } from '@/components/SiteChrome';
 // chiefly that a skipped or failed animation leaves content visible, never
 // stranded at opacity 0.
 import HeroIntro from '@/components/anim/HeroIntro';
+import HackerName from '@/components/anim/HackerName';
 import HeroCanvasParallax from '@/components/anim/HeroCanvasParallax';
 import Reveal from '@/components/anim/Reveal';
 import ParallaxGrid from '@/components/anim/ParallaxGrid';
@@ -70,12 +71,14 @@ export default async function Home() {
               Available for new projects
             </p>
 
-            <h1
-              data-hero="h1"
+            {/* Same element, same data-hero="h1", same type scale — HeroIntro's
+                entrance is untouched. HackerName only adds the decode, the
+                binary rain behind the letters and the pointer tilt, and it
+                keeps the name as real selectable text. */}
+            <HackerName
+              name={p.name}
               className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight md:text-7xl"
-            >
-              {p.name}
-            </h1>
+            />
 
             <p
               data-hero="tagline"
