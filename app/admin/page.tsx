@@ -1097,8 +1097,329 @@ function ManageTab() {
             setEditing(null);
             load();
           }}
+          // Refreshes the list underneath WITHOUT closing the dialog. Replacing
+          // files uses this instead of onSaved: closing on success would wipe
+          // the "Replaced — N files" confirmation off the screen in the same
+          // frame it appeared, and that message is the only proof he gets.
+          onRefresh={load}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Replace the files behind an already-published project, from the edit dialog.
+ *
+ * THE ORDER OF THE THREE STEPS IS THE WHOLE DESIGN:
+ *   1. upload the new files to a BRAND NEW storage path
+ *   2. only if that fully succeeded, point the database row at the new path
+ *   3. only if that succeeded, delete the old files
+ *
+ * Deleting first, or writing over the same path, means a failure halfway
+ * through leaves the live game broken with no way back. In this order the old
+ * build keeps serving until the new one is proven complete, and every failure
+ * path cleans up after itself and changes nothing.
+ *
+ * A new path is required rather than merely safer: `tools_storage_path_key` is
+ * a UNIQUE index on storage_path, and re-using this row's own path would mean
+ * writing files over a bundle that is still being served to players.
+ *
+ * The staging below duplicates a little of DeployTab's logic on purpose. That
+ * one also auto-fills title/description from portfolio.json, which is right for
+ * a NEW project and wrong here -- it would silently overwrite text the owner
+ * has already edited.
+ */
+function ReplaceFiles({ tool, onReplaced }: { tool: Tool; onReplaced: () => void }) {
+  const [reading, setReading] = useState(false);
+  const [staged, setStaged] = useState<Staged | null>(null);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState('');
+
+  function stageZip(raw: { path: string; bytes: Uint8Array }[]) {
+    const n = normalizeZipFiles(raw);
+    if (!n.entryPath) {
+      setErr('No HTML file was found in that archive, so there is nothing to start the game with.');
+      return;
+    }
+    const items: UploadItem[] = n.files.map((f) => ({
+      path: f.path,
+      body: blobFor(f.path, f.bytes),
+      size: f.bytes.byteLength,
+    }));
+    commit(items, n);
+  }
+
+  function stagePicked(raw: { path: string; file: File }[]) {
+    const n = normalizePickedFiles(raw);
+    if (!n.entryPath) {
+      setErr('No HTML file was found in that folder, so there is nothing to start the game with.');
+      return;
+    }
+    const items: UploadItem[] = n.files.map((f) => ({
+      path: f.path,
+      body: f.file,
+      size: f.file.size,
+    }));
+    commit(items, n);
+  }
+
+  function commit(
+    items: UploadItem[],
+    n: {
+      entryPath: string | null;
+      entryReason: EntryReason;
+      htmlCandidates: string[];
+      strippedRoot: string | null;
+      rejected: unknown[];
+      compressedBuild: boolean;
+    },
+  ) {
+    const warnings: string[] = [];
+    if (n.compressedBuild) {
+      warnings.push(
+        'This build contains .gz or .br files, which cannot be served here — the game would ' +
+          'fail to start. Re-export it with compression disabled and try again.',
+      );
+    }
+    if (n.entryReason === 'ambiguous') {
+      warnings.push('Several HTML files were found. Confirm which one starts the game.');
+    }
+    setStaged({
+      items,
+      entryPath: n.entryPath as string,
+      entryReason: n.entryReason,
+      htmlCandidates: n.htmlCandidates,
+      totalBytes: items.reduce((a, i) => a + i.size, 0),
+      strippedRoot: n.strippedRoot,
+      rejectedCount: n.rejected.length,
+      warnings,
+    });
+  }
+
+  async function onZip(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReading(true);
+    setErr('');
+    setDone('');
+    setStaged(null);
+    try {
+      stageZip(await readZip(file));
+    } catch (e2) {
+      setErr(describeZipError(e2));
+    } finally {
+      setReading(false);
+      e.target.value = '';
+    }
+  }
+
+  function onFolder(e: React.ChangeEvent<HTMLInputElement>) {
+    const list = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!list.length) return;
+    setErr('');
+    setDone('');
+    setStaged(null);
+    stagePicked(
+      list.map((file) => ({
+        path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+        file,
+      })),
+    );
+  }
+
+  async function replace() {
+    if (!staged) return;
+    if (staged.warnings.some((w) => w.includes('.gz or .br'))) {
+      setErr('Fix the compressed-build problem above before replacing.');
+      return;
+    }
+
+    setBusy(true);
+    setErr('');
+    setDone('');
+
+    const oldPath = tool.storage_path ?? null;
+    const newPath = `g/${crypto.randomUUID()}`;
+
+    try {
+      // 1 — new files first. The live game is untouched at this point.
+      const result = await uploadGameFiles(newPath, staged.items, setProgress);
+      if (result.failed.length) {
+        await removeGameFiles(newPath).catch(() => {});
+        setErr(
+          `${result.failed.length} of ${result.filesTotal} files failed to upload, so nothing was changed. ` +
+            `First failure: ${result.failed[0].path} — ${result.failed[0].message}`,
+        );
+        return;
+      }
+
+      // 2 — switch the row over. html_code is cleared because a project that
+      // used to be pasted HTML becomes a real bundle at this point.
+      const { data, error } = await supabase
+        .from('tools')
+        .update({
+          kind: 'bundle',
+          storage_path: newPath,
+          entry_path: staged.entryPath,
+          file_count: staged.items.length,
+          bundle_bytes: staged.totalBytes,
+          html_code: null,
+        })
+        .eq('id', tool.id)
+        .select('id');
+
+      if (error || !data?.length) {
+        await removeGameFiles(newPath).catch(() => {});
+        setErr(
+          error?.message ??
+            'The database refused the change, so the old files are still live. Run supabase_migration.sql and try again.',
+        );
+        return;
+      }
+
+      // 3 — the new build is live and proven. Only now is the old one removed,
+      // and a failure here costs storage space, never the game.
+      if (oldPath && oldPath !== newPath) {
+        await removeGameFiles(oldPath).catch(() => {});
+      }
+
+      setDone(
+        `Replaced — ${staged.items.length} files, ${formatBytes(staged.totalBytes)}. The old build has been deleted.`,
+      );
+      setStaged(null);
+      onReplaced();
+    } catch (e2) {
+      await removeGameFiles(newPath).catch(() => {});
+      setErr((e2 as Error).message || 'The replace failed, so nothing was changed.');
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
+  if (tool.kind === 'link') {
+    return (
+      <p className="text-sm text-subtle">
+        This project links out to another site, so there are no files here to replace. Change the
+        address in the “External URL” field above.
+      </p>
+    );
+  }
+
+  const pct =
+    progress && progress.filesTotal
+      ? Math.round((progress.filesDone / progress.filesTotal) * 100)
+      : 0;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted">
+        {tool.kind === 'bundle'
+          ? 'Upload a newer build to replace the files that are live now. The title, description, cover image and everything else on this screen stay exactly as they are.'
+          : 'This project is a pasted HTML page today. Uploading a build here turns it into a full multi-file project.'}
+      </p>
+
+      <div className="flex flex-wrap gap-3">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-hairline bg-surface-2 px-4 py-2.5 text-sm hover:border-lime/50">
+          <icons.FileArchive className="h-4 w-4" aria-hidden />
+          Choose .zip
+          <input
+            type="file"
+            accept=".zip"
+            onChange={onZip}
+            className="hidden"
+            disabled={busy || reading}
+          />
+        </label>
+
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-hairline bg-surface-2 px-4 py-2.5 text-sm hover:border-lime/50">
+          <icons.FolderOpen className="h-4 w-4" aria-hidden />
+          Choose folder
+          {/* webkitdirectory is not in React's typings; the cast is the usual escape. */}
+          <input
+            type="file"
+            onChange={onFolder}
+            className="hidden"
+            disabled={busy || reading}
+            {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+          />
+        </label>
+      </div>
+
+      {reading && <p className="text-sm text-subtle">Reading the archive…</p>}
+
+      {staged && (
+        <div className="space-y-3 rounded-xl border border-hairline bg-surface-2 p-4">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            <span className="text-muted">
+              Files: <span className="text-text">{staged.items.length}</span>
+            </span>
+            <span className="text-muted">
+              Size: <span className="text-text">{formatBytes(staged.totalBytes)}</span>
+            </span>
+            {staged.rejectedCount > 0 && (
+              <span className="text-muted">
+                Skipped: <span className="text-text">{staged.rejectedCount} system files</span>
+              </span>
+            )}
+          </div>
+
+          <div className="text-sm">
+            <span className="text-muted">Starts with: </span>
+            {staged.htmlCandidates.length > 1 ? (
+              <select
+                value={staged.entryPath}
+                onChange={(e) => setStaged({ ...staged, entryPath: e.target.value })}
+                className="rounded-lg border border-hairline bg-surface px-2 py-1 text-text"
+              >
+                {staged.htmlCandidates.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <code className="text-lime">{staged.entryPath}</code>
+            )}
+          </div>
+
+          {staged.warnings.map((w, i) => (
+            <p key={i} className="text-sm text-amber">
+              {w}
+            </p>
+          ))}
+
+          <button
+            type="button"
+            onClick={replace}
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-xl bg-lime px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-lime-dim disabled:opacity-60"
+          >
+            {busy ? `Replacing… ${pct}%` : 'Replace files now'}
+          </button>
+
+          {busy && (
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
+              <div
+                className="h-full bg-lime transition-[width] duration-200"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          )}
+
+          <p className="text-xs text-subtle">
+            This runs as soon as you press the button — it is not part of “Save changes”. The game
+            keeps working on the old files until the new ones have finished uploading.
+          </p>
+        </div>
+      )}
+
+      {err && <p className="text-sm text-danger">{err}</p>}
+      {done && <p className="text-sm text-success">{done}</p>}
     </div>
   );
 }
@@ -1108,10 +1429,12 @@ function EditPanel({
   tool,
   onClose,
   onSaved,
+  onRefresh,
 }: {
   tool: Tool;
   onClose: () => void;
   onSaved: () => void;
+  onRefresh: () => void;
 }) {
   const [f, setF] = useState({
     title: tool.title ?? '',
@@ -1303,6 +1626,17 @@ function EditPanel({
               className={field}
             />
           </Labelled>
+        </div>
+
+        {/* Files. Kept at the bottom, visually separated, and deliberately NOT
+            wired into the form's submit: replacing a build is a heavy,
+            immediate action and must not ride along with a text edit. */}
+        <div className="space-y-3 border-t border-hairline pt-5">
+          <h3 className="flex items-center gap-2 font-semibold">
+            <icons.RefreshCw className="h-4 w-4 text-lime" aria-hidden />
+            Files
+          </h3>
+          <ReplaceFiles tool={tool} onReplaced={onRefresh} />
         </div>
 
         {err && <p className="text-sm text-danger">{err}</p>}
