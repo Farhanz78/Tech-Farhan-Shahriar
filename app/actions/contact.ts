@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { supabase } from '@/utils/supabase/client';
 import { serverSecret } from '@/lib/env';
+import { sendViaResend, whenLabel } from '@/lib/contact-email';
 
 /**
  * =============================================================================
@@ -146,6 +147,11 @@ async function sendEmailNotification(msg: {
   email: string;
   body: string;
 }): Promise<boolean> {
+  // Resend first: it is the only one of the two that can carry the designed
+  // template (lib/contact-email.ts explains why). Returns false when it is not
+  // configured, which is a fall-through, not a failure.
+  if (await sendViaResend(msg, whenLabel())) return true;
+
   const key = process.env.NEXT_PUBLIC_WEB3FORMS_KEY;
   if (!key) return false;
 

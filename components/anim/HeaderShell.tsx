@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { prefersReducedMotion } from '@/hooks/useScrollReveal';
+import { prefersReducedMotion, guaranteeVisible } from '@/hooks/useScrollReveal';
 
 /**
  * The sticky header's shell: entrance animation plus the compact-on-scroll
@@ -40,12 +40,17 @@ export default function HeaderShell({
       const root = ref.current;
       if (!root) return;
 
+      let cancelNet: (() => void) | undefined;
+
       if (!prefersReducedMotion()) {
         gsap.fromTo(
           root,
           { y: -60, opacity: 0 },
           { y: 0, opacity: 1, delay: 0.5, duration: 0.5, ease: 'power3.out' },
         );
+        // Same wall-clock net as the hero. A header stuck at opacity 0 takes the
+        // whole navigation with it, on every page that renders one.
+        cancelNet = guaranteeVisible([root], 1600);
       }
 
       // start: 80px down the page. Anything smaller and the header flickers
@@ -54,6 +59,8 @@ export default function HeaderShell({
         start: 'top -80',
         onToggle: (self) => root.classList.toggle('is-scrolled', self.isActive),
       });
+
+      return () => cancelNet?.();
     },
     { scope: ref },
   );

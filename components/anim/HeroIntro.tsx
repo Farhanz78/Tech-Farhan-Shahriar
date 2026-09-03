@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { prefersReducedMotion } from '@/hooks/useScrollReveal';
+import { prefersReducedMotion, guaranteeVisible } from '@/hooks/useScrollReveal';
 
 /**
  * The hero's entrance.
@@ -64,9 +64,12 @@ export default function HeroIntro({
       const root = ref.current;
       if (!root) return;
 
+      const all: Element[] = [];
+
       for (const part of PARTS) {
         const nodes = gsap.utils.toArray<Element>(part.sel, root);
         if (nodes.length === 0) continue;
+        all.push(...nodes);
 
         gsap.fromTo(
           nodes,
@@ -82,6 +85,14 @@ export default function HeroIntro({
           },
         );
       }
+
+      // The hero is the single most important thing on the site to never lose.
+      // It was caught at opacity 0.005 with the tab backgrounded during load --
+      // built, from-state applied, then rAF suspended and the tween never
+      // advanced. This wall-clock net finishes the job if that happens.
+      // 1.45s is the longest part (0.85 delay + 0.6 duration); the helper adds
+      // its own margin on top.
+      if (all.length > 0) return guaranteeVisible(all, 2200);
     },
     { scope: ref },
   );
