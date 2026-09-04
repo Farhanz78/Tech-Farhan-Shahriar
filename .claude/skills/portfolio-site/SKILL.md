@@ -165,6 +165,48 @@ portfolio it actively works against the goal.
 If ads are wanted anyway, the only defensible placement is the **hosted game
 pages** (`/play/[id]`), where a visitor is playing rather than evaluating him.
 
+### DECIDED 2026-09-04: there are no ads on this site. Do not re-add them.
+
+Every ad network was removed from all three games on the owner's instruction.
+The research below is kept because it is still accurate and explains *why* the
+attempt failed — but it is history now, not a plan.
+
+What was tried, and what it cost:
+
+- **GameMonetize has no rewarded API at all.** Decoding their live `sdk.js`
+  showed `showBanner()` taking no arguments and only `preroll`/`midroll`
+  internally. Everything "rewarded" was a proof-of-play heuristic standing in
+  for a feature that does not exist.
+- **Self-hosting needs their approval anyway.** Ads served fine on
+  gamemonetize.com because that is *their* approved domain. Their own docs
+  require submitting your domain as a publisher, `ads.txt` on the root, and
+  per-game activation. That is true of essentially every network — not a
+  GameMonetize quirk.
+- **The realistic alternatives do not fit this site.** AppLixir wants 100,000
+  monthly impressions; AdinPlay, Playwire and CPMStar are portal-scale; AdSense
+  H5 Games Ads needs AdSense approval plus a separate allowlisting review.
+
+**How the removal is built, so it stays reversible.** No ad SDK is loaded in any
+game. The ad affordances are not deleted — they are *gated*, and every game
+already had the gate:
+
+| Game | What keeps ads off |
+| :--- | :--- |
+| Canopy Chase | `crazysdk.js`'s own `CG.live` is false off-portal; `roadAdsAllowed()` now checks it too |
+| Berm Rush | `core.js` `CG.live` is false, so `adsUsable()` is false |
+| Blackhole CRASH | `initCrazyGamesSDK()` returns early when `GM` is undefined, so `sdkEnv` stays `'disabled'` |
+
+**That last one is the trap, and it is the general lesson.** `init()` calls
+`initCrazyGamesSDK()` *unconditionally*. Without the early return it still ran
+to the bottom and set `sdkEnv = 'gamemonetize'` with `sdkReady = true` — making
+`sdkLive()` return **true**, showing REVIVE (AD) and the road-ad prompt with no
+ad system behind them, and throwing a `ReferenceError` on `GM.request` at the
+first press. **Removing an ad network is never just deleting a script tag: find
+whatever sets the "we have ads" flag and make it false.**
+
+`public/ads.txt` was deleted as well — it authorised sellers the site no longer
+uses.
+
 ### Which network — researched 2026-09-03, not guessed
 
 **Correction to an earlier version of this file:** it listed "CrazyGames / Poki
