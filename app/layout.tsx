@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { preconnect } from 'react-dom';
 import GSAPInit from '@/components/GSAPInit';
 import ScrollReset from '@/components/ScrollReset';
+import StructuredData from '@/components/StructuredData';
 import './globals.css';
 
 const geistSans = Geist({
@@ -157,6 +158,10 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} antialiased`}
       >
+        {/* Search-engine structured data. Renders no visible markup — it is a
+            JSON-LD block describing who this site is about. */}
+        <StructuredData />
+
         {/* Registers the free GSAP plugins once for the whole app. Renders
             nothing. Must be inside <body>, and must be here rather than in a
             page, so a client navigation cannot land on a section whose
