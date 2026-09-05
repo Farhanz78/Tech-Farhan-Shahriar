@@ -185,6 +185,22 @@ function buildCsp(nonce: string): string {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Send www to the bare domain, permanently.
+  //
+  // Both hostnames served the site with a 200, so Google crawled
+  // www.farhanshahriar.online, found byte-identical content, and reported the
+  // homepage as "Duplicate without user-selected canonical" — which means it
+  // was not indexing either copy. A canonical tag is only a hint; a 308 is not.
+  //
+  // Runs before every other check on purpose: a request that is about to be
+  // redirected should not be spending a nonce or a bot-list scan.
+  const host = request.headers.get('host') ?? '';
+  if (host.startsWith('www.')) {
+    const target = new URL(request.url);
+    target.host = host.slice(4);
+    return NextResponse.redirect(target, 308);
+  }
+
   if (isBlockedAgent(request.headers.get('user-agent') ?? '')) {
     return new NextResponse('Forbidden', {
       status: 403,
