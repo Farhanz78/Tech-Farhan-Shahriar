@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<!--
+  Source for public/og.jpg — the link preview card (WhatsApp, Twitter, LinkedIn,
+  Slack, iMessage). Render with scripts/og/render.sh.
+
+  Sized 1200x630, the standard Open Graph ratio. Type is deliberately large:
+  chat apps show this at roughly 300px wide, so anything smaller than about
+  28px here is unreadable where it actually gets seen.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+html,body{width:1200px;height:630px;overflow:hidden}
+.stage{width:1200px;height:630px;position:relative;background:#05090b;overflow:hidden}
+
+/* the real WebGL scene from the live hero, cropped to the sphere */
+.shot{position:absolute;top:-60px;right:-120px;width:760px;height:740px;
+  background:url('hero.png') no-repeat;
+  background-size:1520px 950px;background-position:-800px -80px}
+.shot:after{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 60% at 50% 45%,transparent 0%,transparent 42%,rgba(5,9,11,.72) 74%,#05090b 100%)}
+/* Kept opaque further right than feels necessary: the live hero's paragraph
+   text sits behind the sphere and ghosts through a softer fade. */
+.fadeL{position:absolute;top:0;left:380px;width:400px;height:630px;
+  background:linear-gradient(90deg,#05090b 0%,#05090b 54%,rgba(5,9,11,.92) 76%,rgba(5,9,11,0) 100%)}
+.glow{position:absolute;right:20px;top:60px;width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,rgba(45,212,191,.17) 0%,transparent 62%);filter:blur(30px)}
+.grid{position:absolute;inset:0;opacity:.55;
+  background-image:linear-gradient(rgba(190,242,100,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(190,242,100,.045) 1px,transparent 1px);
+  background-size:60px 60px;
+  -webkit-mask-image:linear-gradient(90deg,#000 0%,#000 42%,transparent 76%)}
+
+.L{position:absolute;left:72px;top:0;height:630px;width:660px;z-index:5;
+  display:flex;flex-direction:column;justify-content:center}
+.chip{align-self:flex-start;display:inline-flex;align-items:center;gap:10px;
+  padding:9px 20px;border-radius:999px;background:rgba(190,242,100,.1);
+  border:1px solid rgba(190,242,100,.4);color:#d6f95e;
+  font-size:17px;font-weight:700;letter-spacing:.11em;text-transform:uppercase}
+.dot{width:8px;height:8px;border-radius:50%;background:#bef264;box-shadow:0 0 12px #bef264}
+h1{margin-top:26px;font-size:82px;line-height:.98;font-weight:900;letter-spacing:-.035em;color:#fff}
+.role{margin-top:16px;font-size:42px;font-weight:900;letter-spacing:-.025em;color:#bef264;line-height:1}
+.line{margin-top:26px;height:1px;width:520px;
+  background:linear-gradient(90deg,rgba(190,242,100,.55),rgba(190,242,100,.06) 72%,transparent)}
+.stack{margin-top:24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.stack span{font-size:23px;font-weight:700;color:#8fa398}
+.stack i{color:#2c3a35;font-style:normal;font-size:20px}
+.url{margin-top:34px;font-size:26px;font-weight:800;color:#5eead4;letter-spacing:.01em}
+</style></head>
+<body><div class="stage">
+  <div class="glow"></div>
+  <div class="shot"></div>
+  <div class="fadeL"></div>
+  <div class="grid"></div>
+  <div class="L">
+    <div class="chip"><span class="dot"></span>Available for new projects</div>
+    <h1>Farhan Shahriar</h1>
+    <div class="role">Full-Stack Developer</div>
+    <div class="line"></div>
+    <div class="stack"><span>Web apps</span><i>&middot;</i><span>Android</span><i>&middot;</i><span>3D browser games</span></div>
+    <div class="url">farhanshahriar.online</div>
+  </div>
+</div></body></html>

@@ -72,11 +72,25 @@ export const metadata: Metadata = {
     title: `${NAME} — ${TAGLINE}`,
     description: DESCRIPTION,
     locale: 'en_US',
+    // Without this, WhatsApp/iMessage/Slack fall back to favicon.ico and the
+    // link renders as a tiny black square. `summary_large_image` below is a
+    // no-op unless an image is actually declared here.
+    // Regenerate with: sh scripts/og/render.sh
+    images: [
+      {
+        url: `${SITE}/og.jpg`,
+        width: 1200,
+        height: 630,
+        type: 'image/jpeg',
+        alt: `${NAME} — ${TAGLINE}`,
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: `${NAME} — ${TAGLINE}`,
     description: DESCRIPTION,
+    images: [`${SITE}/og.jpg`],
   },
   robots: {
     index: true,
