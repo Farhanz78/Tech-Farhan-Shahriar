@@ -37,14 +37,22 @@ const archivo = Archivo({
 const SITE = 'https://farhanshahriar.online';
 const NAME = 'Farhan Shahriar';
 const TAGLINE = 'Full-Stack Developer';
+/**
+ * This is the sentence Google prints under the result, so it is written for a
+ * search result rather than for the page. It names the discipline, the country
+ * and the three frameworks a buyer would actually type, and stays under the
+ * ~160 characters Google renders before truncating (154).
+ */
 const DESCRIPTION =
-  'Farhan Shahriar builds complete products end to end — web applications, Android apps, ' +
-  '3D browser games and the tools around them. Available for freelance projects.';
+  'Full-stack developer in Bangladesh building web applications, 3D websites and ' +
+  'Android apps with Next.js, React and Three.js. Available for freelance work.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {
-    default: `${NAME} — ${TAGLINE}`,
+    // 52 chars, inside the ~60 Google shows. The country is here because
+    // it is the one qualifier that makes a winnable query out of an unwinnable one.
+    default: `${NAME} — ${TAGLINE} in Bangladesh`,
     template: `%s — ${NAME}`,
   },
   description: DESCRIPTION,
@@ -52,17 +60,20 @@ export const metadata: Metadata = {
   authors: [{ name: NAME, url: SITE }],
   creator: NAME,
   publisher: NAME,
+  // Google has ignored this tag since 2009; Bing gives it minimal weight. Kept
+  // short and honest rather than stuffed, because the phrases that actually
+  // rank are the ones in the title, the description and the JSON-LD above.
   keywords: [
-    'full stack developer',
-    'freelance developer',
-    'web developer',
-    'react developer',
-    'next.js developer',
-    'android app developer',
-    'game developer',
-    'html5 games',
-    'webgl games',
-    '3d browser games',
+    'full stack developer Bangladesh',
+    'web developer Bangladesh',
+    'freelance developer Bangladesh',
+    'Next.js developer',
+    'React developer',
+    'Three.js developer',
+    'WebGL developer',
+    '3D website developer',
+    'Android app developer Bangladesh',
+    'hire full stack developer',
     'Farhan Shahriar',
   ],
   alternates: { canonical: '/' },

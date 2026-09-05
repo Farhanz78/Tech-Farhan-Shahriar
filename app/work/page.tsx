@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Work',
   description:
-    'Games, web apps, Android apps and tools built by Farhan Shahriar — most of them playable or usable right in your browser.',
+    'Web apps, 3D websites, Android apps and tools by Farhan Shahriar, a full-stack ' +
+    'developer in Bangladesh — most of them playable in your browser.',
   alternates: { canonical: '/work' },
 };
 

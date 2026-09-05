@@ -48,6 +48,23 @@ export default function StructuredData() {
           '@type': 'PostalAddress',
           addressCountry: 'BD',
         },
+        // Only the country is asserted. A city is not claimed anywhere here
+        // because none has been confirmed, and a wrong locality is worse than
+        // no locality: it competes for the wrong local results.
+        homeLocation: {
+          '@type': 'Country',
+          name: 'Bangladesh',
+        },
+        // hasOccupation is what lets a search engine connect "full-stack
+        // developer" + "Bangladesh" as one fact rather than two loose words.
+        hasOccupation: {
+          '@type': 'Occupation',
+          name: 'Full-Stack Developer',
+          occupationLocation: { '@type': 'Country', name: 'Bangladesh' },
+          skills:
+            'Next.js, React, TypeScript, Three.js, WebGL, GSAP, Tailwind CSS, ' +
+            'Supabase, PostgreSQL, Android development',
+        },
         sameAs: ['https://github.com/Farhanz78'],
         knowsAbout: [
           'Full-stack web development',
@@ -65,6 +82,14 @@ export default function StructuredData() {
           'HTML5 game development',
           'Web performance optimisation',
           'Web application security',
+          // Location-qualified phrases. Deliberately specific: "web developer"
+          // alone is contested by Upwork, Fiverr and LinkedIn and is not
+          // winnable; "Three.js developer Bangladesh" is.
+          'Full-stack development in Bangladesh',
+          'Freelance web developer in Bangladesh',
+          'Three.js developer in Bangladesh',
+          'Next.js developer in Bangladesh',
+          'Android app development in Bangladesh',
         ],
         knowsLanguage: ['en', 'bn'],
       },
@@ -89,9 +114,27 @@ export default function StructuredData() {
           'Freelance development of websites, web applications, Android apps and ' +
           '3D browser experiences, delivered end to end with source code.',
         provider: { '@id': `${SITE}/#person` },
-        areaServed: 'Worldwide',
+        areaServed: [
+          { '@type': 'Country', name: 'Bangladesh' },
+          { '@type': 'Place', name: 'Worldwide' },
+        ],
         availableLanguage: ['English', 'Bengali'],
-        knowsAbout: ['Web development', '3D websites', 'Android apps', 'HTML5 games'],
+        // An explicit catalogue beats a keyword list: each entry is a thing a
+        // buyer can search for and a thing that has actually been shipped.
+        hasOfferCatalog: {
+          '@type': 'OfferCatalog',
+          name: 'Development services',
+          itemListElement: [
+            'Full-stack web application development',
+            '3D and WebGL website development',
+            'Next.js and React website development',
+            'Android app development',
+            'HTML5 and browser game development',
+          ].map((name) => ({
+            '@type': 'Offer',
+            itemOffered: { '@type': 'Service', name },
+          })),
+        },
       },
     ],
   };
